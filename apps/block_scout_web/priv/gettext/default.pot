@@ -637,7 +637,7 @@ msgstr ""
 #: lib/block_scout_web/templates/transaction/overview.html.eex:205
 #: lib/block_scout_web/templates/transaction/overview.html.eex:258
 #: lib/block_scout_web/views/wei_helpers.ex:78
-msgid "Ether"
+msgid "GXC"
 msgstr ""
 
 #, elixir-format
