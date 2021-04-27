@@ -610,13 +610,16 @@ $cube-quantity: 5;
   }
 }
 
-.index-tx-info {
-  display: flex;
-  a {
-    max-width: 100px;
-    overflow: hidden;
-    -o-text-overflow: ellipsis;
-       text-overflow: ellipsis;
-    white-space: nowrap; 
+.card-chain-transactions{
+  .index-tx-info {
+    display: flex;
+    a {
+      max-width: 100px;
+      overflow: hidden;
+      -o-text-overflow: ellipsis;
+         text-overflow: ellipsis;
+      white-space: nowrap; 
+      }
   }
 }
+
