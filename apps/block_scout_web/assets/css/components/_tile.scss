@@ -420,8 +420,12 @@ $tile-body-a-color: #5959d8 !default;
     }
   }
 }
+.blocksWrap {
+    display: block;
+}
 
 .fade-up-blocks-chain {
+   margin-top: 1rem;
   .tile-type-block {
     position: relative;
   }
@@ -603,5 +607,16 @@ $cube-quantity: 5;
 .bridged-tokens-buttons-mobile {
   @include media-breakpoint-down(sm) {
     margin-top: 0.5em;
+  }
+}
+
+.index-tx-info {
+  display: flex;
+  a {
+    max-width: 100px;
+    overflow: hidden;
+    -o-text-overflow: ellipsis;
+       text-overflow: ellipsis;
+    white-space: nowrap; 
   }
 }
