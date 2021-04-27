@@ -65,10 +65,10 @@ defmodule BlockScoutWeb.Mixfile do
       {:bypass, "~> 1.0", only: :test},
       # To add (CORS)(https://www.w3.org/TR/cors/)
       {:cors_plug, "~> 2.0"},
-      {:credo, "~> 1.1", only: :test, runtime: false},
+      {:credo, "~> 1.5", only: :test, runtime: false},
       # For Absinthe to load data in batches
       {:dataloader, "~> 1.0.0"},
-      {:dialyxir, "~> 0.5", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       # Need until https://github.com/absinthe-graphql/absinthe_relay/pull/125 is released, then can be removed
       # The current `absinthe_relay` is compatible though as shown from that PR
       {:ecto, "~> 3.3", override: true},
@@ -102,7 +102,7 @@ defmodule BlockScoutWeb.Mixfile do
       {:plug_cowboy, "~> 2.2"},
       # Waiting for the Pretty Print to be implemented at the Jason lib
       # https://github.com/michalmuskala/jason/issues/15
-      {:poison, "~> 3.1"},
+      {:poison, "~> 4.0"},
       {:postgrex, ">= 0.0.0"},
       # For compatibility with `prometheus_process_collector`, which hasn't been updated yet
       {:prometheus, "~> 4.0", override: true},
@@ -121,7 +121,7 @@ defmodule BlockScoutWeb.Mixfile do
       # `:spandex` tracing of `:phoenix`
       {:spandex_phoenix, "~> 1.0"},
       {:timex, "~> 3.6"},
-      {:wallaby, "~> 0.26", only: :test, runtime: false},
+      {:wallaby, "~> 0.28", only: :test, runtime: false},
       # `:cowboy` `~> 2.0` and Phoenix 1.4 compatibility
       {:wobserver, "~> 0.2.0", github: "poanetwork/wobserver", branch: "support-https"},
       {:phoenix_form_awesomplete, "~> 0.1.4"},

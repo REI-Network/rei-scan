@@ -47,7 +47,8 @@ defmodule Explorer.Mixfile do
     do: [
       :logger,
       :mix,
-      :runtime_tools
+      :runtime_tools,
+      :tesla
     ]
 
   # Specifies your project dependencies.
@@ -63,11 +64,11 @@ defmodule Explorer.Mixfile do
       {:bypass, "~> 1.0", only: :test},
       {:briefly, "~> 0.4", github: "CargoSense/briefly"},
       {:comeonin, "~> 4.0"},
-      {:credo, "~> 1.1", only: :test, runtime: false},
+      {:credo, "~> 1.5", only: :test, runtime: false},
       # For Absinthe to load data in batches
       {:dataloader, "~> 1.0.0"},
       {:decimal, "~> 1.0"},
-      {:dialyxir, "~> 0.5", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.1", only: [:dev, :test], runtime: false},
       # `override: true` for `ex_machina` compatibility
       {:ecto, "~> 3.3", override: true},
       # Storing blockchain data and derived data in PostgreSQL.
@@ -85,7 +86,7 @@ defmodule Explorer.Mixfile do
       {:math, "~> 0.3.0"},
       {:mock, "~> 0.3.0", only: [:test], runtime: false},
       {:mox, "~> 0.4", only: [:test]},
-      {:poison, "~> 3.1"},
+      {:poison, "~> 4.0"},
       {:nimble_csv, "~> 0.6.0"},
       {:postgrex, ">= 0.0.0"},
       # For compatibility with `prometheus_process_collector`, which hasn't been updated yet
@@ -106,7 +107,8 @@ defmodule Explorer.Mixfile do
       {:telemetry, "~> 0.4.1"},
       # `Timex.Duration` for `Explorer.Counters.AverageBlockTime.average_block_time/0`
       {:timex, "~> 3.6"},
-      {:con_cache, "~> 0.13"}
+      {:con_cache, "~> 0.13"},
+      {:tesla, "~> 1.3.3"}
     ]
   end
 

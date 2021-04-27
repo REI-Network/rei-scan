@@ -1,11 +1,24 @@
 ## Current
 
 ### Features
+
+### Fixes
+
+### Chore
+
+
+## 3.7.0-beta
+
+### Features
+- [#3858](https://github.com/blockscout/blockscout/pull/3858) - Integration with Sourcify
+- [#3834](https://github.com/blockscout/blockscout/pull/3834) - Method name in tx tile
+- [#3792](https://github.com/blockscout/blockscout/pull/3792) - Cancel pending transaction
 - [#3786](https://github.com/blockscout/blockscout/pull/3786) - Read contract: enable methods with StateMutability: pure
 - [#3758](https://github.com/blockscout/blockscout/pull/3758) - Add pool metadata display/change to Staking DApp
 - [#3750](https://github.com/blockscout/blockscout/pull/3750) - getblocknobytime block module API endpoint
 
 ### Fixes
+- [#3835](https://github.com/blockscout/blockscout/pull/3835) - Fix getTokenHolders API endpoint pagination
 - [#3787](https://github.com/blockscout/blockscout/pull/3787) - Improve tokens list elements display
 - [#3785](https://github.com/blockscout/blockscout/pull/3785) - Fix for write contract functionality: false and 0 boolean inputs are parsed as true
 - [#3783](https://github.com/blockscout/blockscout/pull/3783) - Fix number of block confirmations
@@ -14,6 +27,10 @@
 - [#3748](https://github.com/blockscout/blockscout/pull/3748) - Skip null topics in eth_getLogs API endpoint
 
 ### Chore
+- [#3831](https://github.com/blockscout/blockscout/pull/3831) - Process type field in eth_getTransactionReceipt response
+- [#3802](https://github.com/blockscout/blockscout/pull/3802) - Extend Become a Candidate popup in Staking DApp
+- [#3801](https://github.com/blockscout/blockscout/pull/3801) - Poison package update
+- [#3799](https://github.com/blockscout/blockscout/pull/3799) - Update credo, dialyxir mix packages
 - [#3789](https://github.com/blockscout/blockscout/pull/3789) - Update repo organization
 - [#3788](https://github.com/blockscout/blockscout/pull/3788) - Update fontawesome NPM package
 
