@@ -120,7 +120,7 @@ defmodule BlockScoutWeb.ChainController do
   def chain_blocks(conn, _params) do
     if ajax?(conn) do
       blocks =
-        [paging_options: %PagingOptions{page_size: 4}]
+        [paging_options: %PagingOptions{page_size: 5}]
         |> Chain.list_blocks()
         |> Repo.preload([[miner: :names], :transactions, :rewards])
         |> Enum.map(fn block ->
