@@ -72,8 +72,8 @@ config :block_scout_web, BlockScoutWeb.Tracer,
 config :block_scout_web, BlockScoutWeb.Gettext, locales: ~w(en), default_locale: "en"
 
 config :block_scout_web, BlockScoutWeb.SocialMedia,
-  twitter: "PoaNetwork",
-  telegram: "poa_network",
+  twitter: "gxchain",
+  telegram: "GXChain_international",
   facebook: "PoaNetwork",
   instagram: "PoaNetwork"
 
