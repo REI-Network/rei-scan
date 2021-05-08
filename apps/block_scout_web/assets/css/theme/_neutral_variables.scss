@@ -1,8 +1,9 @@
 // general
-$primary: #5c34a2;
+$primary: #6699ff;
 $secondary: #87e1a9;
 $tertiary: #bf9cff;
 $additional-font: #fff;
+$banner-board: #40485b;
 
 // footer
 $footer-background-color: #3c226a;
@@ -21,11 +22,11 @@ $dashboard-stats-item-value-color: #fff; // stat values
 
 $dashboard-stats-item-border-color: $secondary; // stat border
 
-$dashboard-banner-gradient-start: $primary; // gradient begin
+$dashboard-banner-gradient-start: $banner-board; // gradient begin
 
-$dashboard-banner-gradient-end: lighten($primary, 5); // gradient end
+$dashboard-banner-gradient-end: lighten($banner-board, 5); // gradient end
 
-$dashboard-banner-network-plain-container-background-color: #8258cd; // stats bg
+$dashboard-banner-network-plain-container-background-color: #6699ff; // stats bg
 
 
 // navigation
