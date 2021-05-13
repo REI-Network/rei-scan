@@ -2,9 +2,9 @@ $tile-type-block-color: $primary !default;
 $tile-type-uncle-color: $cyan !default;
 $tile-type-reorg-color: $purple !default;
 $tile-type-emission-reward-color: $lilac !default;
-$tile-type-transaction-color: $blue !default;
+$tile-type-transaction-color: #6699ff !default;
 $tile-type-contract-call-color: $green !default;
-$tile-type-contract-creation-color: $dark-purple !default;
+$tile-type-contract-creation-color: $dark-blue !default;
 $tile-type-token-transfer-color: $orange !default;
 $tile-type-unique-token-color: $orange !default;
 $tile-type-unique-token-image-color: $orange !default;
@@ -209,8 +209,7 @@ $tile-body-a-color: #5959d8 !default;
 
   @include generate-tile-block(
     ".tile-type-block",
-    $tile-type-block-color,
-    darken($tile-type-block-color, 20%)
+    $tile-type-block-color
   );
   @include generate-tile-block(".tile-type-uncle", $tile-type-uncle-color);
   @include generate-tile-block(".tile-type-reorg", $tile-type-reorg-color);
