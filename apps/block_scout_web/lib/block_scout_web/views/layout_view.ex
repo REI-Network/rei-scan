@@ -14,12 +14,17 @@ defmodule BlockScoutWeb.LayoutView do
       url: "https://www.gxchain.org/"
     },
     %{
-      title: "Explorer",
+      title: "GXChain Explorer",
       url: "https://explorer.gxchain.org"
     },
     %{
-      title: "Explorer",
+      title: "GXChain Explorer",
       url: "https://testnet.explorer.gxchain.org/#/",
+      test_net?: true
+    },
+    %{
+      title: "GXChain2 FAUCET",
+      url: "https://gxchain2-faucet-ui.vercel.app/#/",
       test_net?: true
     }
   ]
