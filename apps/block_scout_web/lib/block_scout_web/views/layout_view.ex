@@ -10,17 +10,8 @@ defmodule BlockScoutWeb.LayoutView do
   @issue_url "https://github.com/gxchain/gxchain2-explorer/issues/new"
   @default_other_networks [
     %{
-      title: "Site",
+      title: "Official Site",
       url: "https://www.gxchain.org/"
-    },
-    %{
-      title: "GXChain Explorer",
-      url: "https://explorer.gxchain.org"
-    },
-    %{
-      title: "GXChain Explorer",
-      url: "https://testnet.explorer.gxchain.org/#/",
-      test_net?: true
     },
     %{
       title: "GXChain2 FAUCET",
@@ -41,11 +32,11 @@ defmodule BlockScoutWeb.LayoutView do
   end
 
   def logo_text do
-    Keyword.get(application_config(), :logo_text) || nil
+    Keyword.get(application_config(), :logo_text) || "Explorer"
   end
 
   def subnetwork_title do
-    Keyword.get(application_config(), :subnetwork) || "GXChain"
+    Keyword.get(application_config(), :subnetwork) || "GXChain2.0"
   end
 
   def network_title do
