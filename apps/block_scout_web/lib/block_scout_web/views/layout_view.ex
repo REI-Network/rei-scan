@@ -40,7 +40,7 @@ defmodule BlockScoutWeb.LayoutView do
   end
 
   def network_title do
-    Keyword.get(application_config(), :network) || "2.0"
+    Keyword.get(application_config(), :network) || nil
   end
 
   defp application_config do
