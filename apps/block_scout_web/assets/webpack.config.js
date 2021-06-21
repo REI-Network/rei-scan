@@ -29,7 +29,13 @@ function transpileViewScript(file) {
 };
 
 const jsOptimizationParams = {
-  parallel: true
+  parallel: true,
+  terserOptions: {
+    format: {
+      comments: false,
+    },
+  },
+  extractComments: false,
 }
 
 const awesompleteJs = {
@@ -55,6 +61,7 @@ const awesompleteJs = {
     ]
   },
   optimization: {
+    minimize: true,
     minimizer: [
       new TerserJSPlugin(jsOptimizationParams),
     ]
@@ -88,6 +95,7 @@ const dropzoneJs = {
     ]
   },
   optimization: {
+    minimize: true,
     minimizer: [
       new TerserJSPlugin(jsOptimizationParams),
     ]
@@ -131,6 +139,7 @@ const appJs =
       path: path.resolve(__dirname, '../priv/static/js')
     },
     optimization: {
+      minimize: true,
       minimizer: [new TerserJSPlugin(jsOptimizationParams), new OptimizeCSSAssetsPlugin({})],
     },
     module: {
