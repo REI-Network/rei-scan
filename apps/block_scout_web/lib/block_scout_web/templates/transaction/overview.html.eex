@@ -31,7 +31,7 @@
                 style="display: none"
                 data-from="<%= from_address_hash %>"
                 data-nonce="<%= @transaction.nonce %>"
-                data-chain-id="<%= Chain.Cache.NetVersion.get_version() %>"
+                data-chain-id='<%= System.get_env("CHAIN_ID") %>'
                 data-placement="top"
                 data-toggle="tooltip">Cancel transaction</span>
             <% end %>
