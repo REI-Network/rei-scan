@@ -6,7 +6,7 @@
     // step is invoked for every opcode that the VM executes.
     step(log, db) {
         // Capture any errors immediately
-        const error = log.getError();
+        var error = log.getError();
 
         if (error !== undefined) {
             this.fault(log, db);
@@ -33,13 +33,13 @@
 
     putErrorInTopCall(log) {
         // Pop off the just failed call
-        const call = this.callStack.pop();
+        var call = this.callStack.pop();
         this.putErrorInCall(log, call);
         this.pushChildCall(call);
     },
 
     putErrorInBottomCall(log) {
-        const call = this.bottomCall();
+        var call = this.bottomCall();
         this.putErrorInCall(log, call);
     },
 
@@ -64,7 +64,7 @@
     },
 
     pushChildCall(childCall) {
-        const topCall = this.topCall();
+        var topCall = this.topCall();
 
         if (topCall.calls === undefined) {
             topCall.calls = [];
@@ -74,7 +74,7 @@
     },
 
     pushGasToTopCall(log) {
-        const topCall = this.topCall();
+        var topCall = this.topCall();
 
         if (topCall.gasBigInt === undefined) {
             topCall.gasBigInt = log.getGas();
@@ -83,7 +83,7 @@
     },
 
     success(log, db) {
-        const op = log.op.toString();
+        var op = log.op.toString();
 
         this.beforeOp(log, db);
 
@@ -120,14 +120,14 @@
          * 0 - pseudo-call stand-in for `ctx` in initializer (`callStack: [{}]`)
          * 1 - first callOp inside of `ctx`
          */
-        const logDepth = log.getDepth();
-        const callStackDepth = this.callStack.length;
+        var logDepth = log.getDepth();
+        var callStackDepth = this.callStack.length;
 
         if (logDepth < callStackDepth) {
             // Pop off the last call and get the execution results
-            const call = this.callStack.pop();
+            var call = this.callStack.pop();
 
-            const ret = log.stack.peek(0);
+            var ret = log.stack.peek(0);
 
             if (!ret.equals(0)) {
                 if (call.type === 'create' || call.type === 'create2') {
@@ -151,12 +151,12 @@
     },
 
     createOp(log) {
-        const inputOffset = log.stack.peek(1).valueOf();
-        const inputLength = log.stack.peek(2).valueOf();
-        const inputEnd = inputOffset + inputLength;
-        const stackValue = log.stack.peek(0);
+        var inputOffset = log.stack.peek(1).valueOf();
+        var inputLength = log.stack.peek(2).valueOf();
+        var inputEnd = inputOffset + inputLength;
+        var stackValue = log.stack.peek(0);
 
-        const call = {
+        var call = {
             type: 'create',
             from: toHex(log.contract.getAddress()),
             init: toHex(log.memory.slice(inputOffset, inputEnd)),
@@ -166,12 +166,12 @@
     },
 
     create2Op(log) {
-        const inputOffset = log.stack.peek(1).valueOf();
-        const inputLength = log.stack.peek(2).valueOf();
-        const inputEnd = inputOffset + inputLength;
-        const stackValue = log.stack.peek(0);
+        var inputOffset = log.stack.peek(1).valueOf();
+        var inputLength = log.stack.peek(2).valueOf();
+        var inputEnd = inputOffset + inputLength;
+        var stackValue = log.stack.peek(0);
 
-        const call = {
+        var call = {
             type: 'create2',
             from: toHex(log.contract.getAddress()),
             init: toHex(log.memory.slice(inputOffset, inputEnd)),
@@ -181,7 +181,7 @@
     },
 
     selfDestructOp(log, db) {
-        const contractAddress = log.contract.getAddress();
+        var contractAddress = log.contract.getAddress();
 
         this.pushChildCall({
             type: 'selfdestruct',
@@ -194,7 +194,7 @@
     },
 
     callOp(log, op) {
-        const to = toAddress(log.stack.peek(1).toString(16));
+        var to = toAddress(log.stack.peek(1).toString(16));
 
         // Skip any pre-compile invocations, those are just fancy opcodes
         if (!isPrecompiled(to)) {
@@ -203,13 +203,13 @@
     },
 
     callCustomOp(log, op, to) {
-        const stackOffset = (op === 'DELEGATECALL' || op === 'STATICCALL' ? 0 : 1);
+        var stackOffset = (op === 'DELEGATECALL' || op === 'STATICCALL' ? 0 : 1);
 
-        const inputOffset = log.stack.peek(2 + stackOffset).valueOf();
-        const inputLength = log.stack.peek(3 + stackOffset).valueOf();
-        const inputEnd = inputOffset + inputLength;
+        var inputOffset = log.stack.peek(2 + stackOffset).valueOf();
+        var inputLength = log.stack.peek(3 + stackOffset).valueOf();
+        var inputEnd = inputOffset + inputLength;
 
-        const call = {
+        var call = {
             type: 'call',
             callType: op.toLowerCase(),
             from: toHex(log.contract.getAddress()),
@@ -245,9 +245,9 @@
     // result is invoked when all the opcodes have been iterated over and returns
     // the final result of the tracing.
     result(ctx, db) {
-        const result = this.ctxToResult(ctx, db);
-        const filtered = this.filterNotUndefined(result);
-        const callSequence = this.sequence(filtered, [], filtered.valueBigInt, []).callSequence;
+        var result = this.ctxToResult(ctx, db);
+        var filtered = this.filterNotUndefined(result);
+        var callSequence = this.sequence(filtered, [], filtered.valueBigInt, []).callSequence;
         return this.encodeCallSequence(callSequence);
     },
 
@@ -270,7 +270,7 @@
     },
 
     ctxToCall(ctx) {
-        const result = {
+        var result = {
             type: 'call',
             callType: 'call',
             from: toHex(ctx.from),
@@ -288,7 +288,7 @@
     },
 
     putErrorOrOutput(result, ctx) {
-        const error = this.error(ctx);
+        var error = this.error(ctx);
 
         if (error !== undefined) {
             result.error = error;
@@ -298,7 +298,7 @@
     },
 
     ctxToCreate(ctx, db) {
-        const result = {
+        var result = {
             type: 'create',
             from: toHex(ctx.from),
             init: toHex(ctx.input),
@@ -314,7 +314,7 @@
     },
 
     ctxToCreate2(ctx, db) {
-        const result = {
+        var result = {
             type: 'create2',
             from: toHex(ctx.from),
             init: toHex(ctx.input),
@@ -330,8 +330,8 @@
     },
 
     putBottomChildCalls(result) {
-        const bottomCall = this.bottomCall();
-        const bottomChildCalls = bottomCall.calls;
+        var bottomCall = this.bottomCall();
+        var bottomChildCalls = bottomCall.calls;
 
         if (bottomChildCalls !== undefined) {
             result.calls = bottomChildCalls;
@@ -339,7 +339,7 @@
     },
 
     putErrorOrCreatedContract(result, ctx, db) {
-        const error = this.error(ctx);
+        var error = this.error(ctx);
 
         if (error !== undefined) {
             result.error = error
@@ -356,13 +356,13 @@
     error(ctx) {
         var error;
 
-        const bottomCall = this.bottomCall();
-        const bottomCallError = bottomCall.error;
+        var bottomCall = this.bottomCall();
+        var bottomCallError = bottomCall.error;
 
         if (bottomCallError !== undefined) {
             error = bottomCallError;
         } else {
-            const ctxError = ctx.error;
+            var ctxError = ctx.error;
 
             if (ctxError !== undefined) {
                 error = ctxError;
@@ -390,7 +390,7 @@
 
     // sequence converts the finalized calls from a call tree to a call sequence
     sequence(call, callSequence, availableValueBigInt, traceAddress) {
-        const subcalls = call.calls;
+        var subcalls = call.calls;
         delete call.calls;
 
         call.traceAddress = traceAddress;
@@ -403,7 +403,7 @@
 
         if (subcalls !== undefined) {
             for (var i = 0; i < subcalls.length; i++) {
-                const nestedSequenced = this.sequence(
+                var nestedSequenced = this.sequence(
                     subcalls[i],
                     newCallSequence,
                     call.valueBigInt,
@@ -435,14 +435,14 @@
     },
 
     putValue(call) {
-        const valueBigInt = call.valueBigInt;
+        var valueBigInt = call.valueBigInt;
         delete call.valueBigInt;
 
         call.value = '0x' + valueBigInt.toString(16);
     },
 
     putGas(call) {
-        const gasBigInt = call.gasBigInt;
+        var gasBigInt = call.gasBigInt;
         delete call.gasBigInt;
 
         if (gasBigInt === undefined) {
@@ -453,7 +453,7 @@
     },
 
     putGasUsed(call) {
-        const gasUsedBigInt = call.gasUsedBigInt;
+        var gasUsedBigInt = call.gasUsedBigInt;
         delete call.gasUsedBigInt;
 
         if (gasUsedBigInt === undefined) {
