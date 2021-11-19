@@ -25,7 +25,7 @@ defmodule Indexer.Transform.Blocks do
   https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm
   """
   def signer(block) when is_map(block) do
-    if length(block.extra_data) == 194 do
+    if String.length(block.extra_data) == 196 do
       # Last 65 bytes is the signature. Multiply by two since we haven't transformed to raw bytes
       {extra_data, signature} = String.split_at(trim_prefix(block.extra_data), -130)
 
