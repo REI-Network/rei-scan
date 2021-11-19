@@ -39,11 +39,11 @@ defmodule Indexer.Transform.Blocks do
 
       block = %{block | extra_data: extra_data}
 
-      [evList | [ _ | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
+      [evList | [ [ round | [ polRound ] ] | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
 
       evHash = calcEvListHash(evList)
 
-      signature_hash = reimint_signature_hash(block, evHash)
+      signature_hash = reimint_signature_hash(block, round, polRound, evHash)
 
       recover_pub_key(signature_hash, proposal)
     end
@@ -103,7 +103,7 @@ defmodule Indexer.Transform.Blocks do
     hash
   end
 
-  defp reimint_signature_hash(block, evHash) do
+  defp reimint_signature_hash(block, round, polRound, evHash) do
     header_data = [
       decode(block.parent_hash),
       decode(block.sha3_uncles),
@@ -122,7 +122,8 @@ defmodule Indexer.Transform.Blocks do
       decode(block.nonce)
     ]
 
-    {:ok, hash} = ExKeccak.hash_256(ExRLP.encode(header_data))
+    {:ok, blockHash} = ExKeccak.hash_256(ExRLP.encode(header_data))
+    {:ok, hash} = ExKeccak.hash_256(ExRLP.encode([0, block.number, round, polRound, blockHash]))
     hash
   end
 
