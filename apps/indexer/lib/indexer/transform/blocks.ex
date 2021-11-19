@@ -123,7 +123,7 @@ defmodule Indexer.Transform.Blocks do
     ]
 
     {:ok, blockHash} = ExKeccak.hash_256(ExRLP.encode(header_data))
-    {:ok, hash} = ExKeccak.hash_256(ExRLP.encode([0, block.number, round, polRound, blockHash]))
+    {:ok, hash} = ExKeccak.hash_256(ExRLP.encode([<<0>>, block.number, round, polRound, blockHash]))
     hash
   end
 
