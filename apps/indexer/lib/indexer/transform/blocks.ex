@@ -25,19 +25,62 @@ defmodule Indexer.Transform.Blocks do
   https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm
   """
   def signer(block) when is_map(block) do
-    # Last 65 bytes is the signature. Multiply by two since we haven't transformed to raw bytes
-    {extra_data, signature} = String.split_at(trim_prefix(block.extra_data), -130)
+    if length(block.extra_data) == 194 do
+      # Last 65 bytes is the signature. Multiply by two since we haven't transformed to raw bytes
+      {extra_data, signature} = String.split_at(trim_prefix(block.extra_data), -130)
 
-    block = %{block | extra_data: extra_data}
+      block = %{block | extra_data: extra_data}
 
-    signature_hash = signature_hash(block)
+      signature_hash = clique_signature_hash(block)
 
-    recover_pub_key(signature_hash, decode(signature))
+      recover_pub_key(signature_hash, decode(signature))
+    else
+      {extra_data, encoded_ex_data} = String.split_at(trim_prefix(block.extra_data), 64)
+
+      block = %{block | extra_data: extra_data}
+
+      [evList | [ _ | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
+
+      evHash = calcEvListHash(evList)
+
+      signature_hash = reimint_signature_hash(block, evHash)
+
+      recover_pub_key(signature_hash, proposal)
+    end
+  end
+
+  defp calcEvListHash(evList) do
+    if length(evList) == 1 do
+      [ev1] = evList
+      [_ | [ ev1Votes ] ] = ev1
+
+      encodedEv1 = ExRLP.encode(ev1Votes)
+
+      ev1Hash = ExKeccak.hash_256(encodedEv1)
+
+      ev1Hash
+    else 
+      if length(evList) == 2 do
+        [ev1 | [ ev2] ] = evList
+        [_ | [ ev1Votes ] ] = ev1
+        [_ | [ ev2Votes ] ] = ev2
+
+        encodedEv1 = ExRLP.encode(ev1Votes)
+        encodedEv2 = ExRLP.encode(ev2Votes)
+
+        ev1Hash = ExKeccak.hash_256(encodedEv1)
+        ev2Hash = ExKeccak.hash_256(encodedEv2)
+
+        ev1Hash <> ev2Hash
+      else
+        <<>>
+      end
+    end
   end
 
   # Signature hash calculated from the block header.
   # Needed for PoA-based chains
-  defp signature_hash(block) do
+  defp clique_signature_hash(block) do
     header_data = [
       decode(block.parent_hash),
       decode(block.sha3_uncles),
@@ -52,6 +95,29 @@ defmodule Indexer.Transform.Blocks do
       block.gas_used,
       DateTime.to_unix(block.timestamp),
       decode(block.extra_data),
+      decode(block.mix_hash),
+      decode(block.nonce)
+    ]
+
+    {:ok, hash} = ExKeccak.hash_256(ExRLP.encode(header_data))
+    hash
+  end
+
+  defp reimint_signature_hash(block, evHash) do
+    header_data = [
+      decode(block.parent_hash),
+      decode(block.sha3_uncles),
+      decode(block.miner_hash),
+      decode(block.state_root),
+      decode(block.transactions_root),
+      decode(block.receipts_root),
+      decode(block.logs_bloom),
+      block.difficulty,
+      block.number,
+      block.gas_limit,
+      block.gas_used,
+      DateTime.to_unix(block.timestamp),
+      decode(block.extra_data) <> evHash,
       decode(block.mix_hash),
       decode(block.nonce)
     ]
