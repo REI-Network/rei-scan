@@ -649,7 +649,7 @@ msgstr ""
 #: lib/block_scout_web/templates/transaction/overview.html.eex:215
 #: lib/block_scout_web/templates/transaction/overview.html.eex:268
 #: lib/block_scout_web/views/wei_helpers.ex:78
-msgid "GXC"
+msgid "REI"
 msgstr ""
 
 #, elixir-format

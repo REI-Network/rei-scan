@@ -11,10 +11,10 @@ defmodule BlockScoutWeb.LayoutView do
   @default_other_networks [
     %{
       title: "Official Site",
-      url: "https://www.gxchain.org/"
+      url: "https://rei.network/"
     },
     %{
-      title: "GXChain2 FAUCET",
+      title: "REI Network FAUCET",
       url: "https://gxchain2-faucet-ui.vercel.app/#/",
       test_net?: true
     }
@@ -23,12 +23,12 @@ defmodule BlockScoutWeb.LayoutView do
   alias BlockScoutWeb.SocialMedia
 
   def logo do
-    Keyword.get(application_config(), :logo) || "/images/gxchain-2.svg"
+    Keyword.get(application_config(), :logo) || "/images/rei-network.svg"
   end
 
   def logo_footer do
     Keyword.get(application_config(), :logo_footer) || Keyword.get(application_config(), :logo) ||
-      "/images/gxchain-2.svg"
+      "/images/rei-network.svg"
   end
 
   def logo_text do
@@ -36,7 +36,7 @@ defmodule BlockScoutWeb.LayoutView do
   end
 
   def subnetwork_title do
-    Keyword.get(application_config(), :subnetwork) || "GXChain2.0"
+    Keyword.get(application_config(), :subnetwork) || "REI Network"
   end
 
   def network_title do
@@ -53,7 +53,7 @@ defmodule BlockScoutWeb.LayoutView do
 
   def issue_link(conn) do
     params = [
-      labels: "Gxchain2.0",
+      labels: "REI Network",
       body: issue_body(conn),
       title: subnetwork_title() <> ": <Issue Title>"
     ]

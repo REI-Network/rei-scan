@@ -82,7 +82,7 @@
 
           <%= if Helper.payable?(function) do %>
             <div class="form-group pr-3">
-              <input type="text" name="function_input" tx-value class="form-control form-control-sm address-input-sm mt-2" placeholder='value(<%= gettext("GXC")%>)'  />
+              <input type="text" name="function_input" tx-value class="form-control form-control-sm address-input-sm mt-2" placeholder='value(<%= gettext("REI")%>)'  />
             </div>
           <% end %>
 
@@ -117,7 +117,7 @@
                     <span class="py-2 px-2">
                       <input class="wei-ether" type="checkbox" autocomplete="off">
                       <span class="d-inline-block" data-conversion-text-wei><%= gettext("WEI")%></span>
-                      <span class="d-none" data-conversion-text-eth><%= gettext("GXC")%></span>
+                      <span class="d-none" data-conversion-text-eth><%= gettext("REI")%></span>
                     </span>
                   </div>
                 <% else %>

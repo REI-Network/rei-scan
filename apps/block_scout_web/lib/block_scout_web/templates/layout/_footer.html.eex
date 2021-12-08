@@ -17,7 +17,7 @@
 
     <div class="row">
       <div class="col-xs-12 col-lg-6">
-        <p class="footer-info-text"><%= gettext("GXChain2.0 explorer, powered by Blockscout.") %></p>
+        <p class="footer-info-text"><%= gettext("REI Network explorer, powered by Blockscout.") %></p>
         <div class="footer-social-icons">
           <a href="https://github.com/gxchain/gxchain2-explorer" rel="noreferrer" target="_blank" class="footer-social-icon" title='<%= gettext("Github") %>'>
             <i class="fab fa-github"></i>
@@ -29,7 +29,7 @@
       </div>
 
       <div class="col-xs-12 col-md-4 col-lg-6 footer-list">
-        <h3>GXChain</h3>
+        <h3>REI Network</h3>
         <ul>
           <li><a href="<%= issue_link(@conn) %>" rel="noreferrer" class="footer-link" target="_blank"><%= gettext("Submit an Issue") %></a></li>
           <li><a href="https://github.com/gxchain/gxchain2-explorer" rel="noreferrer" class="footer-link"><%= gettext("Contribute") %></a></li>
