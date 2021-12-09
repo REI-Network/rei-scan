@@ -7,7 +7,7 @@ defmodule BlockScoutWeb.LayoutView do
 
   import BlockScoutWeb.AddressView, only: [from_address_hash: 1]
 
-  @issue_url "https://github.com/gxchain/gxchain2-explorer/issues/new"
+  @issue_url "https://github.com/REI-Network/rei-scan/issues/new"
   @default_other_networks [
     %{
       title: "Official Site",
@@ -15,7 +15,7 @@ defmodule BlockScoutWeb.LayoutView do
     },
     %{
       title: "REI Network FAUCET",
-      url: "https://gxchain2-faucet-ui.vercel.app/#/",
+      url: "https://faucet.rei.network/",
       test_net?: true
     }
   ]
@@ -106,7 +106,7 @@ defmodule BlockScoutWeb.LayoutView do
           nil
 
         release_link_env_var == "" || release_link_env_var == nil ->
-          "https://github.com/gxchain/gxchain2" <> version
+          "https://github.com/REI-Network/rei/" <> version
 
         true ->
           release_link_env_var
