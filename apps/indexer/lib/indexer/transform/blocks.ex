@@ -39,13 +39,23 @@ defmodule Indexer.Transform.Blocks do
 
       block = %{block | extra_data: extra_data}
 
-      [evList | [ [ round | [ polRound ] ] | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
+      [evList | [ [ round | roundInfo ] | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
 
       evHash = calcEvListHash(evList)
 
-      signature_hash = reimint_signature_hash(block, round, polRound, evHash)
+      if (length(roundInfo) == 1) do
+        [ polRound ] = roundInfo
 
-      recover_pub_key(signature_hash, proposal)
+        signature_hash = reimint_signature_hash(block, round, polRound, evHash)
+
+        recover_pub_key(signature_hash, proposal)
+      else
+        [ polRound | [ commitRound ] ] = roundInfo
+        
+        signature_hash = reimint_signature_hash(block, round, polRound, evHash)
+
+        recover_pub_key(signature_hash, proposal)
+      end
     end
   end
 
