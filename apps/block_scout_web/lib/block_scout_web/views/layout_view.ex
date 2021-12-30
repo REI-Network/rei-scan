@@ -10,14 +10,19 @@ defmodule BlockScoutWeb.LayoutView do
   @issue_url "https://github.com/REI-Network/rei-scan/issues/new"
   @default_other_networks [
     %{
-      title: "Official Site",
-      url: "https://rei.network/"
+      title: "Scan Mainnet",
+      url: "https://scan.rei.network/"
     },
     %{
-      title: "REI Network FAUCET",
+      title: "FAUCET",
       url: "https://faucet.rei.network/",
       test_net?: true
-    }
+    },
+    %{
+      title: "Scan Testnet",
+      url: "https://scan-test.rei.network/",
+      test_net?: true
+    },
   ]
 
   alias BlockScoutWeb.SocialMedia
