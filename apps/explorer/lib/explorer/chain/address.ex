@@ -25,7 +25,7 @@ defmodule Explorer.Chain.Address do
 
   alias Explorer.Chain.Cache.NetVersion
 
-  @optional_attrs ~w(contract_code fetched_coin_balance fetched_coin_balance_block_number nonce decompiled verified)a
+  @optional_attrs ~w(contract_code fetched_coin_balance fetched_coin_balance_block_number nonce decompiled verified gas_used transactions_count token_transfers_count)a
   @required_attrs ~w(hash)a
   @allowed_attrs @optional_attrs ++ @required_attrs
 
@@ -58,7 +58,10 @@ defmodule Explorer.Chain.Address do
           contracts_creation_transaction: %Ecto.Association.NotLoaded{} | Transaction.t(),
           inserted_at: DateTime.t(),
           updated_at: DateTime.t(),
-          nonce: non_neg_integer() | nil
+          nonce: non_neg_integer() | nil,
+          transactions_count: non_neg_integer() | nil,
+          token_transfers_count: non_neg_integer() | nil,
+          gas_used: non_neg_integer() | nil
         }
 
   @derive {Poison.Encoder,
@@ -69,7 +72,8 @@ defmodule Explorer.Chain.Address do
              :token,
              :contracts_creation_internal_transaction,
              :contracts_creation_transaction,
-             :names
+             :names,
+             :smart_contract_additional_sources
            ]}
 
   @derive {Jason.Encoder,
@@ -80,7 +84,8 @@ defmodule Explorer.Chain.Address do
              :token,
              :contracts_creation_internal_transaction,
              :contracts_creation_transaction,
-             :names
+             :names,
+             :smart_contract_additional_sources
            ]}
 
   @primary_key {:hash, Hash.Address, autogenerate: false}
@@ -93,6 +98,9 @@ defmodule Explorer.Chain.Address do
     field(:verified, :boolean, default: false)
     field(:has_decompiled_code?, :boolean, virtual: true)
     field(:stale?, :boolean, virtual: true)
+    field(:transactions_count, :integer)
+    field(:token_transfers_count, :integer)
+    field(:gas_used, :integer)
 
     has_one(:smart_contract, SmartContract)
     has_one(:token, Token, foreign_key: :contract_address_hash)
@@ -210,7 +218,7 @@ defmodule Explorer.Chain.Address do
   end
 
   defp stream_every_four_bytes_of_sha256(value) do
-    {:ok, hash} = ExKeccak.hash_256(value)
+    hash = ExKeccak.hash_256(value)
 
     hash
     |> stream_binary()

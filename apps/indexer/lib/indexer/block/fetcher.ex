@@ -110,7 +110,7 @@ defmodule Indexer.Block.Fetcher do
   @spec fetch_and_import_range(t, Range.t()) ::
           {:ok, %{inserted: %{}, errors: [EthereumJSONRPC.Transport.error()]}}
           | {:error,
-             {step :: atom(), reason :: [%Ecto.Changeset{}] | term()}
+             {step :: atom(), reason :: [Ecto.Changeset.t()] | term()}
              | {step :: atom(), failed_value :: term(), changes_so_far :: term()}}
   def fetch_and_import_range(
         %__MODULE__{
@@ -156,10 +156,8 @@ defmodule Indexer.Block.Fetcher do
            |> AddressCoinBalances.params_set(),
          coin_balances_params_daily_set =
            %{
-             beneficiary_params: MapSet.to_list(beneficiary_params_set),
-             blocks_params: blocks,
-             logs_params: logs,
-             transactions_params: transactions_with_receipts
+             coin_balances_params: coin_balances_params_set,
+             blocks: blocks
            }
            |> AddressCoinBalancesDaily.params_set(),
          beneficiaries_with_gas_payment <-

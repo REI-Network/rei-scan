@@ -9,7 +9,6 @@
             <span><%= gettext("There was a problem loading the chart.") %></span>
           </button>
           <canvas data-chart="historyChart"
-
                   data-history_chart_paths=
                   '{<%= for {{key, value}, x} <- Enum.with_index(@chart_data_paths) do %>
                         "<%= key %>":"<%= value %>"
@@ -17,10 +16,9 @@
                         ,
                         <% end %>
                   <% end %>}'
-
                   data-history_chart_config = '<%= @chart_config_json %>'
-
-                  width="350" height="152" style="display: none;"></canvas>
+                  width="350" height="152">
+          </canvas>
         </div>
         <!-- Legend -->
         <script>
@@ -40,7 +38,7 @@
             <%= if Enum.member?(market_chart_config, :price) do %>
                 <div class="dashboard-banner-chart-legend-item">
                     <span class="dashboard-banner-chart-legend-label">
-                    <%= gettext "Price" %>
+                    <%= System.get_env("COIN_NAME") || System.get_env("COIN") %> <%= gettext "Price" %>
                     </span>
                     <div class="dashboard-banner-chart-legend-value-container">
                       <span class="dashboard-banner-chart-legend-value inline" data-selector="exchange-rate" data-wei-value="<%= Explorer.Chain.Wei.from(Decimal.new(1), :ether).value %>" data-usd-exchange-rate="<%= @exchange_rate.usd_value %>">
@@ -133,7 +131,7 @@
             <span class="dashboard-banner-network-stats-label">
               <%= gettext "Total transactions" %>
             </span>
-            <div style="display: flex;">
+            <div class="d-flex">
               <span class="dashboard-banner-network-stats-value" data-selector="transaction-count">
                 <%= BlockScoutWeb.Cldr.Number.to_string!(@transaction_estimated_count, format: "#,###") %>
               </span>
@@ -170,106 +168,93 @@
       </div>
     </div>
   </div>
-  <script defer data-cfasync="false" src="<%= static_path(@conn, "/js/chart-loader.js") %>"></script>
-  <script defer data-cfasync="false" src="<%= static_path(@conn, "/js/chain.js") %>"></script>
 </div>
 <section class="container">
-  <div class="row mb-5">
+<div class="row mb-5">
     <div class="col-lg-6 mb-4 mb-lg-0">
-      <div class="card card-chain-blocks">
-        <div class="card-body">
-        <%= link(gettext("View All Blocks"), to: block_path(BlockScoutWeb.Endpoint, :index), class: "btn-line float-right") %>
-        <h2 class="card-title"><%= gettext "Blocks" %></h2>
-        <div class="blocksWrap" data-selector="chain-block-list" data-url="<%= chain_blocks_path(@conn, :chain_blocks) %>">
-            <button data-selector="error-message" class="alert alert-danger col-12 text-left" style="display: none;">
-            <span class="alert-link">
-                <%= gettext "Something went wrong, click to reload." %>
-            </span>
-            </button>
-            <div hidden data-selector="loading-message" class="block-item" >
-            <div data-selector="chain-block">
-            <div class="tile tile-type-block n-p d-flex flex-column">
-                <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
-                <div class="tile-bottom-contents">
-                <div class="dark-block-loader"></div>
-                <div class="dark-block-loader"></div>
-                </div>
-            </div>
-            </div>
-            </div>
-            <div hidden data-selector="loading-message" class="block-item" >
-            <div data-selector="chain-block">
-            <div class="tile tile-type-block n-p d-flex flex-column">
-                <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
-                <div class="tile-bottom-contents">
-                <div class="dark-block-loader"></div>
-                <div class="dark-block-loader"></div>
-                </div>
-            </div>
-            </div>
-            </div>
-            <div hidden data-selector="loading-message" class="block-item" >
-            <div data-selector="chain-block">
-            <div class="tile tile-type-block n-p d-flex flex-column">
-                <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
-                <div class="tile-bottom-contents">
-                <div class="dark-block-loader"></div>
-                <div class="dark-block-loader"></div>
-                </div>
-            </div>
-            </div>
-            </div>
-            <div hidden data-selector="loading-message" class="block-item" >
-            <div data-selector="chain-block">
-            <div class="tile tile-type-block n-p d-flex flex-column">
-                <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
-                <div class="tile-bottom-contents">
-                <div class="dark-block-loader"></div>
-                <div class="dark-block-loader"></div>
-                </div>
-            </div>
-            </div>
-            </div>
-            <div hidden data-selector="loading-message" class="block-item" >
-            <div data-selector="chain-block">
-            <div class="tile tile-type-block n-p d-flex flex-column">
-                <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
-                <div class="tile-bottom-contents">
-                <div class="dark-block-loader"></div>
-                <div class="dark-block-loader"></div>
-                </div>
-            </div>
-            </div>
-            </div>
+  <div class="card card-chain-blocks js-ad-dependant-mb-3">
+    <div class="card-body">
+      <%= link(gettext("View All Blocks"), to: blocks_path(BlockScoutWeb.Endpoint, :index), class: "btn-line float-right") %>
+      <h2 class="card-title"><%= gettext "Blocks" %></h2>
+      <div class="row" data-selector="chain-block-list" data-url="<%= chain_blocks_path(@conn, :chain_blocks) %>">
+        <button data-selector="error-message" class="alert alert-danger col-12 text-left" style="display: none;">
+          <span class="alert-link">
+            <%= gettext "Something went wrong, click to reload." %>
+          </span>
+        </button>
+        <div hidden data-selector="loading-message" class="col-lg-3 block-item" >
+         <div data-selector="chain-block">
+           <div class="tile tile-type-block n-p d-flex flex-column">
+             <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
+             <div class="tile-bottom-contents">
+               <div class="dark-block-loader"></div>
+               <div class="dark-block-loader"></div>
+             </div>
+           </div>
+         </div>
         </div>
+        <div hidden data-selector="loading-message" class="col-lg-3 block-item" >
+         <div data-selector="chain-block">
+           <div class="tile tile-type-block n-p d-flex flex-column">
+             <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
+             <div class="tile-bottom-contents">
+               <div class="dark-block-loader"></div>
+               <div class="dark-block-loader"></div>
+             </div>
+           </div>
+         </div>
         </div>
-      </div>
-    </div>
-    <div class="col-lg-6">
-      <div class="card card-chain-transactions">
-        <div class="card-body">
-        <%= link(gettext("View All Transactions"), to: transaction_path(BlockScoutWeb.Endpoint, :index), class: "btn-line float-right") %>
-        <h2 class="card-title lg-card-title"><%= gettext "Transactions" %></h2>
-        <div data-selector="channel-batching-message" style="display: none;">
-            <div data-selector="reload-button" class="alert alert-info">
-            <a href="#" class="alert-link"><span data-selector="channel-batching-count"></span> <%= gettext "More transactions have come in" %></a>
-            </div>
+        <div hidden data-selector="loading-message" class="col-lg-3 block-item" >
+         <div data-selector="chain-block">
+           <div class="tile tile-type-block n-p d-flex flex-column">
+             <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
+             <div class="tile-bottom-contents">
+               <div class="dark-block-loader"></div>
+               <div class="dark-block-loader"></div>
+             </div>
+           </div>
+         </div>
         </div>
-        <span data-selector="transactions-list" data-transactions-path="<%= @transactions_path %>">
-            <button data-selector="error-message" class="alert alert-danger col-12 text-left" style="display: none;">
-            <span class="alert-link">
-                <%= gettext "Something went wrong, click to retry." %>
-            </span>
-            </button>
-            <div hidden data-selector="loading-message">
-            <%= render BlockScoutWeb.CommonComponentsView, "_tile-loader.html" %>
+        <div hidden data-selector="loading-message" class="col-lg-3 block-item" >
+         <div data-selector="chain-block">
+           <div class="tile tile-type-block n-p d-flex flex-column">
+             <a class="tile-title"><span class="tile-loader tile-label-loader"></span> </a>
+             <div class="tile-bottom-contents">
+              <div class="dark-block-loader"></div>
+              <div class="dark-block-loader"></div>
             </div>
-        </span>
+           </div>
+         </div>
         </div>
       </div>
     </div>
   </div>
+  </div>
+    <div class="col-lg-6">
 
+  <%= render BlockScoutWeb.Advertisement.BannersAdView, "_banner_728.html", conn: @conn %>
 
-
+  <div class="card card-chain-transactions">
+    <div class="card-body">
+      <%= link(gettext("View All Transactions"), to: transaction_path(BlockScoutWeb.Endpoint, :index), class: "btn-line float-right") %>
+      <h2 class="card-title lg-card-title"><%= gettext "Transactions" %></h2>
+      <div data-selector="channel-batching-message" style="display: none;">
+        <div data-selector="reload-transactions-button" class="alert alert-info">
+          <a href="#" class="alert-link"><span data-selector="channel-batching-count"></span> <%= gettext "More transactions have come in" %></a>
+        </div>
+      </div>
+      <span data-selector="transactions-list" data-transactions-path="<%= @transactions_path %>">
+        <button data-selector="error-message" class="alert alert-danger col-12 text-left" style="display: none;">
+          <span class="alert-link">
+            <%= gettext "Something went wrong, click to retry." %>
+          </span>
+        </button>
+        <div hidden data-selector="loading-message">
+          <%= render BlockScoutWeb.CommonComponentsView, "_tile-loader.html" %>
+        </div>
+      </span>
+    </div>
+  </div>
+  </div>
+  </div>
 </section>

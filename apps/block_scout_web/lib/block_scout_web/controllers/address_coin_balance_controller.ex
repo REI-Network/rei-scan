@@ -7,7 +7,7 @@ defmodule BlockScoutWeb.AddressCoinBalanceController do
 
   import BlockScoutWeb.Chain, only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
 
-  alias BlockScoutWeb.{AccessHelpers, AddressCoinBalanceView}
+  alias BlockScoutWeb.{AccessHelpers, AddressCoinBalanceView, Controller}
   alias Explorer.{Chain, Market}
   alias Explorer.Chain.Address
   alias Explorer.ExchangeRates.Token
@@ -53,11 +53,17 @@ defmodule BlockScoutWeb.AddressCoinBalanceController do
       {:restricted_access, _} ->
         not_found(conn)
 
+      :not_found ->
+        case Chain.Hash.Address.validate(address_hash_string) do
+          {:ok, _} ->
+            json(conn, %{items: [], next_page_path: ""})
+
+          _ ->
+            not_found(conn)
+        end
+
       :error ->
         unprocessable_entity(conn)
-
-      :not_found ->
-        not_found(conn)
     end
   end
 
@@ -69,18 +75,35 @@ defmodule BlockScoutWeb.AddressCoinBalanceController do
         address: address,
         coin_balance_status: CoinBalanceOnDemand.trigger_fetch(address),
         exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
-        current_path: current_path(conn),
+        current_path: Controller.current_full_path(conn),
         counters_path: address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)})
       )
     else
       {:restricted_access, _} ->
         not_found(conn)
 
+      {:error, :not_found} ->
+        {:ok, address_hash} = Chain.string_to_address_hash(address_hash_string)
+        address = %Chain.Address{hash: address_hash, smart_contract: nil, token: nil}
+
+        case Chain.Hash.Address.validate(address_hash_string) do
+          {:ok, _} ->
+            render(
+              conn,
+              "index.html",
+              address: address,
+              coin_balance_status: nil,
+              exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
+              counters_path: address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)}),
+              current_path: Controller.current_full_path(conn)
+            )
+
+          _ ->
+            not_found(conn)
+        end
+
       :error ->
         unprocessable_entity(conn)
-
-      {:error, :not_found} ->
-        not_found(conn)
     end
   end
 end

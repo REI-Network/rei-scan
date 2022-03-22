@@ -1,11 +1,17 @@
 defmodule BlockScoutWeb.API.RPC.ContractController do
   use BlockScoutWeb, :controller
 
+  alias BlockScoutWeb.AddressContractVerificationController, as: VerificationController
   alias BlockScoutWeb.API.RPC.Helpers
   alias Explorer.Chain
   alias Explorer.Chain.Events.Publisher, as: EventsPublisher
-  alias Explorer.Chain.SmartContract
-  alias Explorer.SmartContract.Publisher
+  alias Explorer.Chain.{Hash, SmartContract}
+  alias Explorer.Chain.SmartContract.VerificationStatus
+  alias Explorer.Etherscan.Contracts
+  alias Explorer.SmartContract.Solidity.Publisher
+  alias Explorer.SmartContract.Solidity.PublisherWorker, as: SolidityPublisherWorker
+  alias Explorer.SmartContract.Vyper.Publisher, as: VyperPublisher
+  alias Explorer.ThirdPartyIntegrations.Sourcify
 
   def verify(conn, %{"addressHash" => address_hash} = params) do
     with {:params, {:ok, fetched_params}} <- {:params, fetch_verify_params(params)},
@@ -14,7 +20,7 @@ defmodule BlockScoutWeb.API.RPC.ContractController do
            {:params, fetch_external_libraries(params)},
          {:publish, {:ok, _}} <-
            {:publish, Publisher.publish(address_hash, fetched_params, external_libraries)} do
-      address = Chain.address_hash_to_address_with_source_code(casted_address_hash)
+      address = Contracts.address_hash_to_address_with_source_code(casted_address_hash)
 
       render(conn, :verify, %{contract: address})
     else
@@ -43,25 +49,284 @@ defmodule BlockScoutWeb.API.RPC.ContractController do
     end
   end
 
-  def publish(conn, %{"addressHash" => address_hash, "params" => params, "abi" => abi} = input) do
-    params =
-      if Map.has_key?(input, "secondarySources") do
-        params
-        |> Map.put("secondary_sources", Map.get(input, "secondarySources"))
+  def verify_via_sourcify(conn, %{"addressHash" => address_hash} = input) do
+    files =
+      if Map.has_key?(input, "files") do
+        input["files"]
       else
-        params
+        []
       end
 
-    result =
-      case Publisher.publish_smart_contract(address_hash, params, abi) do
-        {:ok, _contract} = result ->
-          result
+    if Chain.smart_contract_fully_verified?(address_hash) do
+      render(conn, :error, error: "Smart-contract already verified.")
+    else
+      case Sourcify.check_by_address(address_hash) do
+        {:ok, _verified_status} ->
+          get_metadata_and_publish(address_hash, conn)
 
-        {:error, changeset} ->
-          {:error, changeset}
+        _ ->
+          with {:ok, files_array} <- prepare_params(files),
+               {:ok, validated_files} <- validate_files(files_array) do
+            verify_and_publish(address_hash, validated_files, conn)
+          else
+            {:error, error} ->
+              render(conn, :error, error: error)
+
+            _ ->
+              render(conn, :error, error: "Invalid body")
+          end
       end
+    end
+  end
+
+  def verifysourcecode(
+        conn,
+        %{
+          "codeformat" => "solidity-standard-json-input",
+          "contractaddress" => address_hash,
+          "sourceCode" => json_input
+        } = params
+      ) do
+    with {:check_verified_status, false} <-
+           {:check_verified_status, Chain.smart_contract_fully_verified?(address_hash)},
+         {:format, {:ok, _casted_address_hash}} <- to_address_hash(address_hash),
+         {:params, {:ok, fetched_params}} <- {:params, fetch_verifysourcecode_params(params)},
+         uid <- VerificationStatus.generate_uid(address_hash) do
+      Que.add(SolidityPublisherWorker, {fetched_params, json_input, uid})
+
+      render(conn, :show, %{result: uid})
+    else
+      {:check_verified_status, true} ->
+        render(conn, :error, error: "Smart-contract already verified.", data: "Smart-contract already verified")
+
+      {:format, :error} ->
+        render(conn, :error, error: "Invalid address hash", data: "Invalid address hash")
+
+      {:params, {:error, error}} ->
+        render(conn, :error, error: error, data: error)
+    end
+  end
+
+  def verifysourcecode(conn, %{"codeformat" => "solidity-standard-json-input"}) do
+    render(conn, :error, error: "Missing sourceCode or contractaddress fields")
+  end
+
+  def checkverifystatus(conn, %{"guid" => guid}) do
+    case VerificationStatus.fetch_status(guid) do
+      :pending ->
+        render(conn, :show, %{result: "Pending in queue"})
+
+      :pass ->
+        render(conn, :show, %{result: "Pass - Verified"})
+
+      :fail ->
+        render(conn, :show, %{result: "Fail - Unable to verify"})
+
+      :unknown_uid ->
+        render(conn, :show, %{result: "Unknown UID"})
+    end
+  end
+
+  defp prepare_params(files) when is_struct(files) do
+    {:error, "Invalid args format"}
+  end
+
+  defp prepare_params(files) when is_map(files) do
+    {:ok, VerificationController.prepare_files_array(files)}
+  end
+
+  defp prepare_params(files) when is_list(files) do
+    {:ok, files}
+  end
+
+  defp prepare_params(_arg) do
+    {:error, "Invalid args format"}
+  end
+
+  defp validate_files(files) do
+    if length(files) < 2 do
+      {:error, "You should attach at least 2 files"}
+    else
+      files_array =
+        files
+        |> Enum.filter(fn file -> validate_filename(file.filename) end)
+
+      jsons =
+        files_array
+        |> Enum.filter(fn file -> only_json(file.filename) end)
+
+      sols =
+        files_array
+        |> Enum.filter(fn file -> only_sol(file.filename) end)
+
+      if length(jsons) > 0 and length(sols) > 0 do
+        {:ok, files_array}
+      else
+        {:error, "You should attach at least one *.json and one *.sol files"}
+      end
+    end
+  end
+
+  defp validate_filename(filename) do
+    case List.last(String.split(String.downcase(filename), ".")) do
+      "sol" ->
+        true
+
+      "json" ->
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp only_sol(filename) do
+    case List.last(String.split(String.downcase(filename), ".")) do
+      "sol" ->
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp only_json(filename) do
+    case List.last(String.split(String.downcase(filename), ".")) do
+      "json" ->
+        true
+
+      _ ->
+        false
+    end
+  end
+
+  defp get_metadata_and_publish(address_hash_string, conn) do
+    case Sourcify.get_metadata(address_hash_string) do
+      {:ok, verification_metadata} ->
+        %{"params_to_publish" => params_to_publish, "abi" => abi, "secondary_sources" => secondary_sources} =
+          VerificationController.parse_params_from_sourcify(address_hash_string, verification_metadata)
+
+        case publish_without_broadcast(%{
+               "addressHash" => address_hash_string,
+               "params" => params_to_publish,
+               "abi" => abi,
+               "secondarySources" => secondary_sources
+             }) do
+          {:ok, _contract} ->
+            {:format, {:ok, address_hash}} = to_address_hash(address_hash_string)
+            address = Contracts.address_hash_to_address_with_source_code(address_hash)
+            render(conn, :verify, %{contract: address})
+
+          {:error, changeset} ->
+            render(conn, :error, error: changeset)
+        end
+
+      {:error, %{"error" => error}} ->
+        render(conn, :error, error: error)
+    end
+  end
+
+  defp verify_and_publish(address_hash_string, files_array, conn) do
+    case Sourcify.verify(address_hash_string, files_array) do
+      {:ok, _verified_status} ->
+        case Sourcify.check_by_address(address_hash_string) do
+          {:ok, _verified_status} ->
+            get_metadata_and_publish(address_hash_string, conn)
+
+          {:error, %{"error" => error}} ->
+            render(conn, :error, error: error)
+
+          {:error, error} ->
+            render(conn, :error, error: error)
+        end
+
+      {:error, %{"error" => error}} ->
+        render(conn, :error, error: error)
+
+      {:error, error} ->
+        render(conn, :error, error: error)
+    end
+  end
+
+  def verify_vyper_contract(conn, %{"addressHash" => address_hash} = params) do
+    with {:params, {:ok, fetched_params}} <- {:params, fetch_vyper_verify_params(params)},
+         {:format, {:ok, casted_address_hash}} <- to_address_hash(address_hash),
+         {:publish, {:ok, _}} <-
+           {:publish, VyperPublisher.publish(address_hash, fetched_params)} do
+      address = Contracts.address_hash_to_address_with_source_code(casted_address_hash)
+
+      render(conn, :verify, %{contract: address})
+    else
+      {:publish,
+       {:error,
+        %Ecto.Changeset{
+          errors: [
+            address_hash:
+              {"has already been taken",
+               [
+                 constraint: :unique,
+                 constraint_name: "smart_contracts_address_hash_index"
+               ]}
+          ]
+        }}} ->
+        render(conn, :error, error: "Smart-contract already verified.")
+
+      {:publish, _} ->
+        render(conn, :error, error: "Something went wrong while publishing the contract.")
+
+      {:format, :error} ->
+        render(conn, :error, error: "Invalid address hash")
+
+      {:params, {:error, error}} ->
+        render(conn, :error, error: error)
+    end
+  end
+
+  def publish_without_broadcast(
+        %{"addressHash" => address_hash, "abi" => abi, "compilationTargetFilePath" => file_path} = input
+      ) do
+    params = proccess_params(input)
+
+    address_hash
+    |> Publisher.publish_smart_contract(params, abi, file_path)
+    |> proccess_response()
+  end
+
+  def publish_without_broadcast(%{"addressHash" => address_hash, "abi" => abi} = input) do
+    params = proccess_params(input)
+
+    address_hash
+    |> Publisher.publish_smart_contract(params, abi)
+    |> proccess_response()
+  end
+
+  def publish(nil, %{"addressHash" => _address_hash} = input) do
+    publish_without_broadcast(input)
+  end
+
+  def publish(conn, %{"addressHash" => address_hash} = input) do
+    result = publish_without_broadcast(input)
 
     EventsPublisher.broadcast([{:contract_verification_result, {address_hash, result, conn}}], :on_demand)
+  end
+
+  def proccess_params(input) do
+    if Map.has_key?(input, "secondarySources") do
+      input["params"]
+      |> Map.put("secondary_sources", Map.get(input, "secondarySources"))
+    else
+      input["params"]
+    end
+  end
+
+  def proccess_response(response) do
+    case response do
+      {:ok, _contract} = result ->
+        result
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
   end
 
   def listcontracts(conn, params) do
@@ -105,7 +370,8 @@ defmodule BlockScoutWeb.API.RPC.ContractController do
   def getsourcecode(conn, params) do
     with {:address_param, {:ok, address_param}} <- fetch_address(params),
          {:format, {:ok, address_hash}} <- to_address_hash(address_param) do
-      address = Chain.address_hash_to_address_with_source_code(address_hash)
+      _ = VerificationController.check_and_verify(address_param)
+      address = Contracts.address_hash_to_address_with_source_code(address_hash)
 
       render(conn, :getsourcecode, %{
         contract: address
@@ -127,23 +393,23 @@ defmodule BlockScoutWeb.API.RPC.ContractController do
 
     case Map.get(opts, :filter) do
       :verified ->
-        Chain.list_verified_contracts(page_size, offset)
+        Contracts.list_verified_contracts(page_size, offset)
 
       :decompiled ->
         not_decompiled_with_version = Map.get(opts, :not_decompiled_with_version)
-        Chain.list_decompiled_contracts(page_size, offset, not_decompiled_with_version)
+        Contracts.list_decompiled_contracts(page_size, offset, not_decompiled_with_version)
 
       :unverified ->
-        Chain.list_unordered_unverified_contracts(page_size, offset)
+        Contracts.list_unordered_unverified_contracts(page_size, offset)
 
       :not_decompiled ->
-        Chain.list_unordered_not_decompiled_contracts(page_size, offset)
+        Contracts.list_unordered_not_decompiled_contracts(page_size, offset)
 
       :empty ->
-        Chain.list_empty_contracts(page_size, offset)
+        Contracts.list_empty_contracts(page_size, offset)
 
       _ ->
-        Chain.list_contracts(page_size, offset)
+        Contracts.list_contracts(page_size, offset)
     end
   end
 
@@ -208,6 +474,8 @@ defmodule BlockScoutWeb.API.RPC.ContractController do
   end
 
   defp to_smart_contract(address_hash) do
+    _ = VerificationController.check_and_verify(Hash.to_string(address_hash))
+
     result =
       case Chain.address_hash_to_smart_contract(address_hash) do
         nil ->
@@ -229,13 +497,37 @@ defmodule BlockScoutWeb.API.RPC.ContractController do
     |> required_param(params, "contractSourceCode", "contract_source_code")
     |> optional_param(params, "evmVersion", "evm_version")
     |> optional_param(params, "constructorArguments", "constructor_arguments")
-    |> optional_param(params, "autodetectConstructorArguments", "autodetect_contructor_args")
+    |> optional_param(params, "autodetectConstructorArguments", "autodetect_constructor_args")
     |> optional_param(params, "optimizationRuns", "optimization_runs")
     |> parse_optimization_runs()
   end
 
+  defp fetch_vyper_verify_params(params) do
+    {:ok, %{}}
+    |> required_param(params, "addressHash", "address_hash")
+    |> required_param(params, "name", "name")
+    |> required_param(params, "compilerVersion", "compiler_version")
+    |> required_param(params, "contractSourceCode", "contract_source_code")
+    |> optional_param(params, "constructorArguments", "constructor_arguments")
+  end
+
+  defp fetch_verifysourcecode_params(params) do
+    {:ok, %{}}
+    |> required_param(params, "contractaddress", "address_hash")
+    |> required_param(params, "contractname", "name")
+    |> required_param(params, "compilerversion", "compiler_version")
+    |> optional_param(params, "constructorArguements", "constructor_arguments")
+    |> optional_param(params, "constructorArguments", "constructor_arguments")
+  end
+
   defp parse_optimization_runs({:ok, %{"optimization_runs" => runs} = opts}) when is_bitstring(runs) do
-    {:ok, Map.put(opts, "optimization_runs", 200)}
+    case Integer.parse(runs) do
+      {runs_int, _} ->
+        {:ok, Map.put(opts, "optimization_runs", runs_int)}
+
+      _ ->
+        {:ok, Map.put(opts, "optimization_runs", 200)}
+    end
   end
 
   defp parse_optimization_runs({:ok, %{"optimization_runs" => runs} = opts}) when is_integer(runs) do

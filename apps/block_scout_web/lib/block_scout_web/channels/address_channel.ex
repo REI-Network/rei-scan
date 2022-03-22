@@ -24,7 +24,8 @@ defmodule BlockScoutWeb.AddressChannel do
     "internal_transaction",
     "transaction",
     "verification_result",
-    "token_transfer"
+    "token_transfer",
+    "pending_transaction"
   ])
 
   {:ok, burn_address_hash} = Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
@@ -139,6 +140,8 @@ defmodule BlockScoutWeb.AddressChannel do
     {:noreply, socket}
   end
 
+  def handle_out("pending_transaction", data, socket), do: handle_transaction(data, socket, "transaction")
+
   def handle_transaction(%{address: address, transaction: transaction}, socket, event) do
     Gettext.put_locale(BlockScoutWeb.Gettext, socket.assigns.locale)
 
@@ -197,7 +200,7 @@ defmodule BlockScoutWeb.AddressChannel do
       rendered =
         View.render_to_string(
           AddressView,
-          "_balance_card.html",
+          "_balance_dropdown.html",
           conn: socket,
           address: address,
           coin_balance_status: :current,

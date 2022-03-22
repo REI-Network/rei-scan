@@ -180,12 +180,21 @@ defmodule BlockScoutWeb.AddressView do
   """
   def primary_name(%Address{names: [_ | _] = address_names}) do
     case Enum.find(address_names, &(&1.primary == true)) do
-      nil -> nil
-      %Address.Name{name: name} -> name
+      nil ->
+        %Address.Name{name: name} = Enum.at(address_names, 0)
+        name
+
+      %Address.Name{name: name} ->
+        name
     end
   end
 
   def primary_name(%Address{names: _}), do: nil
+
+  def implementation_name(%Address{smart_contract: %{implementation_name: implementation_name}}),
+    do: implementation_name
+
+  def implementation_name(_), do: nil
 
   def primary_validator_metadata(%Address{names: [_ | _] = address_names}) do
     case Enum.find(address_names, &(&1.primary == true)) do
@@ -229,13 +238,15 @@ defmodule BlockScoutWeb.AddressView do
   def smart_contract_verified?(%Address{smart_contract: nil}), do: false
 
   def smart_contract_with_read_only_functions?(%Address{smart_contract: %SmartContract{}} = address) do
-    Enum.any?(address.smart_contract.abi, &Helper.queriable_method?(&1))
+    Enum.any?(address.smart_contract.abi, &is_read_function?(&1))
   end
 
   def smart_contract_with_read_only_functions?(%Address{smart_contract: nil}), do: false
 
+  def is_read_function?(function), do: Helper.queriable_method?(function) || Helper.read_with_wallet_method?(function)
+
   def smart_contract_is_proxy?(%Address{smart_contract: %SmartContract{}} = address) do
-    Chain.proxy_contract?(address.smart_contract.abi)
+    Chain.proxy_contract?(address.hash, address.smart_contract.abi)
   end
 
   def smart_contract_is_proxy?(%Address{smart_contract: nil}), do: false
@@ -266,7 +277,7 @@ defmodule BlockScoutWeb.AddressView do
   end
 
   def trimmed_hash(address) when is_binary(address) do
-    "#{String.slice(address, 0..5)}–#{String.slice(address, -6..-1)}"
+    "#{String.slice(address, 0..7)}–#{String.slice(address, -6..-1)}"
   end
 
   def trimmed_hash(_), do: ""
@@ -405,6 +416,8 @@ defmodule BlockScoutWeb.AddressView do
   def short_token_id(token_id, max_length) do
     short_string(token_id, max_length)
   end
+
+  def short_string(nil, _max_length), do: ""
 
   def short_string(name, max_length) do
     part_length = Kernel.trunc(max_length / 4)

@@ -8,6 +8,8 @@ defmodule BlockScoutWeb.Notifier do
   alias BlockScoutWeb.{
     AddressContractVerificationViaFlattenedCodeView,
     AddressContractVerificationViaJsonView,
+    AddressContractVerificationViaStandardJsonInputView,
+    AddressContractVerificationVyperView,
     Endpoint
   }
 
@@ -17,7 +19,7 @@ defmodule BlockScoutWeb.Notifier do
   alias Explorer.Chain.Transaction.History.TransactionStats
   alias Explorer.Counters.AverageBlockTime
   alias Explorer.ExchangeRates.Token
-  alias Explorer.SmartContract.{Solidity.CodeCompiler, Solidity.CompilerVersion}
+  alias Explorer.SmartContract.{CompilerVersion, Solidity.CodeCompiler}
   alias Phoenix.View
 
   def handle_event({:chain_event, :addresses, type, addresses}) when type in [:realtime, :on_demand] do
@@ -46,7 +48,7 @@ defmodule BlockScoutWeb.Notifier do
   def handle_event(
         {:chain_event, :contract_verification_result, :on_demand, {address_hash, contract_verification_result, conn}}
       ) do
-    verification_from_json_upload? = Map.has_key?(conn.params, "file")
+    %{view: view, compiler: compiler} = select_contract_type_and_form_view(conn.params)
 
     contract_verification_result =
       case contract_verification_result do
@@ -54,21 +56,7 @@ defmodule BlockScoutWeb.Notifier do
           result
 
         {:error, changeset} ->
-          compiler_versions =
-            case CompilerVersion.fetch_versions() do
-              {:ok, compiler_versions} ->
-                compiler_versions
-
-              {:error, _} ->
-                []
-            end
-
-          view =
-            if verification_from_json_upload? do
-              AddressContractVerificationViaJsonView
-            else
-              AddressContractVerificationViaFlattenedCodeView
-            end
+          compiler_versions = fetch_compiler_version(compiler)
 
           result =
             view
@@ -197,6 +185,39 @@ defmodule BlockScoutWeb.Notifier do
   end
 
   def handle_event(_), do: nil
+
+  def fetch_compiler_version(compiler) do
+    case CompilerVersion.fetch_versions(compiler) do
+      {:ok, compiler_versions} ->
+        compiler_versions
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  def select_contract_type_and_form_view(params) do
+    verification_from_metadata_json? =
+      Map.has_key?(params, "verification_type") && Map.get(params, "verification_type") == "json:metadata"
+
+    verification_from_standard_json_input? =
+      Map.has_key?(params, "verification_type") && Map.get(params, "verification_type") == "json:standard"
+
+    verification_from_vyper? =
+      Map.has_key?(params, "verification_type") && Map.get(params, "verification_type") == "vyper"
+
+    compiler = if verification_from_vyper?, do: :vyper, else: :solc
+
+    view =
+      cond do
+        verification_from_standard_json_input? -> AddressContractVerificationViaStandardJsonInputView
+        verification_from_metadata_json? -> AddressContractVerificationViaJsonView
+        verification_from_vyper? -> AddressContractVerificationVyperView
+        true -> AddressContractVerificationViaFlattenedCodeView
+      end
+
+    %{view: view, compiler: compiler}
+  end
 
   @doc """
   Broadcast the percentage of blocks indexed so far.

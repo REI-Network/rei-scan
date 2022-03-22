@@ -5,16 +5,13 @@ defmodule BlockScout.Mixfile do
 
   def project do
     [
+      app: :block_scout,
       aliases: aliases(Mix.env()),
-      version: "2.0",
+      version: "4.1.2",
       apps_path: "apps",
       deps: deps(),
-      dialyzer: [
-        plt_add_deps: :transitive,
-        plt_add_apps: ~w(ex_unit mix)a,
-        ignore_warnings: ".dialyzer-ignore"
-      ],
-      elixir: "~> 1.10",
+      dialyzer: dialyzer(),
+      elixir: "~> 1.12",
       preferred_cli_env: [
         credo: :test,
         dialyzer: :test
@@ -34,6 +31,16 @@ defmodule BlockScout.Mixfile do
   end
 
   ## Private Functions
+
+  defp dialyzer() do
+    [
+      plt_add_deps: :transitive,
+      plt_add_apps: ~w(ex_unit mix)a,
+      ignore_warnings: ".dialyzer-ignore",
+      plt_core_path: "priv/plts",
+      plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+    ]
+  end
 
   defp aliases(env) do
     [
@@ -70,7 +77,7 @@ defmodule BlockScout.Mixfile do
       {:absinthe_plug, git: "https://github.com/blockscout/absinthe_plug.git", tag: "1.5.3", override: true},
       {:tesla, "~> 1.3.3"},
       # Documentation
-      {:ex_doc, "~> 0.19.0", only: [:dev]},
+      {:ex_doc, "~> 0.28.2", only: :dev, runtime: false},
       {:number, "~> 1.0.3"}
     ]
   end
