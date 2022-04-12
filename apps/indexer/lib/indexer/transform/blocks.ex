@@ -130,10 +130,8 @@ defmodule Indexer.Transform.Blocks do
       decode(block.mix_hash),
       decode(block.nonce)
     ]
-
-    {:ok, blockHash} = ExKeccak.hash_256(ExRLP.encode(header_data))
-    {:ok, hash} = ExKeccak.hash_256(ExRLP.encode([<<0>>, block.number, round, polRound, blockHash]))
-    hash
+    
+    ExKeccak.hash_256(ExRLP.encode([<<0>>, block.number, round, polRound, ExKeccak.hash_256(ExRLP.encode(header_data))]))
   end
 
   defp trim_prefix("0x" <> rest), do: rest
