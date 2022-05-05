@@ -1,5 +1,5 @@
 import $ from 'jquery'
-import omit from 'lodash/omit'
+import omit from 'lodash.omit'
 import humps from 'humps'
 import { createAsyncLoadStore } from '../../lib/async_listing_load'
 import '../address'
@@ -25,7 +25,7 @@ export function reducer (state, action) {
 }
 
 if ($('[data-page="tokens"]').length) {
-  const store = createAsyncLoadStore(reducer, initialState, 'dataset.identifierLog')
+  const store = createAsyncLoadStore(reducer, initialState, 'dataset.identifierHash')
 
   store.dispatch({
     type: 'PAGE_LOAD'

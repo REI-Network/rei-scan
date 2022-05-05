@@ -1,11 +1,17 @@
 <% status = transaction_status(@transaction) %>
+<% error_in_internal_tx = @transaction.has_error_in_internal_txs %>
 <div class="tile tile-type-<%= type_suffix(@transaction) %> fade-in <%= status_class(@transaction) %>" data-test="<%= type_suffix(@transaction) %>" data-identifier-hash="<%= @transaction.hash %>">
   <div class="row tile-body" data-selector="token-transfers-toggle" data-test="chain_transaction">
     <!-- Color Block -->
     <div class="tile-transaction-type-block col-md-2 d-flex flex-row flex-md-column">
-      <span class="tile-label" data-test="transaction_type">
-        <%= transaction_display_type(@transaction) %>
-      </span>
+      <div>
+        <%= if error_in_internal_tx do %>
+          <%= render BlockScoutWeb.CommonComponentsView, "_i_tooltip_2.html", text: gettext("Error in internal transactions"), additional_classes: ["color-inherit"] %>
+        <% end %>
+        <span class="tile-label" data-test="transaction_type">
+          <%= transaction_display_type(@transaction) %>
+        </span>
+      </div>
       <span class="tile-status-label ml-2 ml-md-0" data-test="transaction_status">
         <%= if status_class(@transaction) == "tile-status--pending" do %>
           <div class="loading-spinner-small">
@@ -13,15 +19,19 @@
             <span class="loading-spinner-block-2"></span>
           </div>
         <% end %>
-        <%= formatted_status(status) %>
+        <%= formatted_result(status) %>
       </span>
     </div>
     <!-- Content -->
     <div class="col-md-7 col-lg-8 d-flex flex-column pr-2 pr-sm-2 pr-md-0">
-      <span class="text-truncate">
-      <%= render "_link.html", transaction_hash: @transaction.hash %>
-      <% method_name = Transaction.get_method_name(@transaction) %>
-      <%= render BlockScoutWeb.FormView, "_tag.html", text: method_name, additional_classes: ["method", "ml-1"] %>
+      <span>
+      <div class="text-truncate d-flex">
+        <%= render "_link.html", transaction_hash: @transaction.hash, data_test: "address_hash_link" %>
+        <% method_name = Transaction.get_method_name(@transaction) %>
+        <%= if method_name do %>
+          <%= render BlockScoutWeb.FormView, "_tag.html", text: method_name, additional_classes: ["method", "ml-1"] %>
+        <% end %>
+      </div>
       </span>
       <span class="index-tx-info">
         <%= @transaction |> BlockScoutWeb.AddressView.address_partial_selector(:from, assigns[:current_address]) |> BlockScoutWeb.RenderHelpers.render_partial() %>
@@ -80,5 +90,4 @@
       <% end %>
     </div>
   </div>
-  <script defer data-cfasync="false" src="<%= static_path(@conn, "/js/token-transfers-toggle.js") %>"></script>
 </div>

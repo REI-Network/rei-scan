@@ -126,7 +126,7 @@
   }
 }
 
-@mixin btn-line($bg-color: #fff, $text-color: $secondary) {
+@mixin btn-line($bg-color: #fff, $text-color: $secondary, $font-size: 12px) {
   -webkit-appearance: none !important;
   align-items: center;
   background-color: $bg-color;
@@ -135,7 +135,7 @@
   color: $text-color;
   cursor: pointer;
   display: flex;
-  font-size: 12px;
+  font-size: $font-size;
   font-weight: 600;
   height: 36px;
   justify-content: center;
@@ -202,6 +202,34 @@
   path {
     fill: $color;
     transition: $transition-cont;
+  }
+
+  &:hover {
+    background-color: $color;
+
+    path {
+      fill: #fff;
+    }
+  }
+}
+
+@mixin square-icon-button-inline($color, $dimensions) {
+  border: 1px solid $color;
+  border-radius: 2px;
+  cursor: pointer;
+  display: inline;
+  height: $dimensions;
+  transition: $transition-cont;
+  width: $dimensions;
+
+  path {
+    fill: $color;
+    transition: $transition-cont;
+  }
+
+  svg {
+    vertical-align: text-bottom;   
+    margin-bottom: -1.1px;
   }
 
   &:hover {

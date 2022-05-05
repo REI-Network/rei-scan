@@ -1,9 +1,9 @@
 import $ from 'jquery'
-import omit from 'lodash/omit'
-import first from 'lodash/first'
-import rangeRight from 'lodash/rangeRight'
-import find from 'lodash/find'
-import map from 'lodash/map'
+import omit from 'lodash.omit'
+import first from 'lodash.first'
+import rangeRight from 'lodash.rangeright'
+import find from 'lodash.find'
+import map from 'lodash.map'
 import humps from 'humps'
 import numeral from 'numeral'
 import socket from '../socket'
@@ -52,6 +52,7 @@ function baseReducer (state = initialState, action) {
         if (state.blocks.length < BLOCKS_PER_PAGE) {
           pastBlocks = state.blocks
         } else {
+          $('.miner-address-tooltip').tooltip('hide')
           pastBlocks = state.blocks.slice(0, -1)
         }
         return Object.assign({}, state, {
@@ -124,6 +125,11 @@ function baseReducer (state = initialState, action) {
         })
       }
     }
+    case 'TRANSACTION_BATCH_EXPANDED': {
+      return Object.assign({}, state, {
+        transactionsBatch: []
+      })
+    }
     case 'RECEIVED_UPDATED_TRANSACTION_STATS': {
       return Object.assign({}, state, {
         transactionStats: action.msg.stats
@@ -167,7 +173,7 @@ const elements = {
     load () {
       chart = window.dashboardChart
     },
-    render ($el, state, oldState) {
+    render (_$el, state, oldState) {
       if (!chart || (oldState.availableSupply === state.availableSupply && oldState.marketHistoryData === state.marketHistoryData) || !state.availableSupply) return
 
       chart.updateMarketHistory(state.availableSupply, state.marketHistoryData)
@@ -339,6 +345,17 @@ if ($chainDetailsPage.length) {
     type: 'RECEIVED_UPDATED_TRANSACTION_STATS',
     msg: msg
   }))
+
+  const $txReloadButton = $('[data-selector="reload-transactions-button"]')
+  const $channelBatching = $('[data-selector="channel-batching-message"]')
+  $txReloadButton.on('click', (event) => {
+    event.preventDefault()
+    loadTransactions(store)
+    $channelBatching.hide()
+    store.dispatch({
+      type: 'TRANSACTION_BATCH_EXPANDED'
+    })
+  })
 }
 
 function loadTransactions (store) {

@@ -1,7 +1,9 @@
 defmodule BlockScoutWeb.API.RPC.ContractView do
   use BlockScoutWeb, :view
 
+  alias BlockScoutWeb.AddressView
   alias BlockScoutWeb.API.RPC.RPCView
+  alias Explorer.Chain
   alias Explorer.Chain.{Address, DecompiledSmartContract, SmartContract}
 
   defguardp is_empty_string(input) when input == "" or input == nil
@@ -28,6 +30,10 @@ defmodule BlockScoutWeb.API.RPC.ContractView do
     RPCView.render("show.json", data: prepare_source_code_contract(contract))
   end
 
+  def render("show.json", %{result: result}) do
+    RPCView.render("show.json", data: result)
+  end
+
   defp prepare_source_code_contract(nil) do
     %{
       "Address" => "",
@@ -41,7 +47,9 @@ defmodule BlockScoutWeb.API.RPC.ContractView do
       "OptimizationRuns" => "",
       "EVMVersion" => "",
       "ConstructorArguments" => "",
-      "ExternalLibraries" => ""
+      "ExternalLibraries" => "",
+      "FileName" => "",
+      "IsProxy" => "false"
     }
   end
 
@@ -61,6 +69,26 @@ defmodule BlockScoutWeb.API.RPC.ContractView do
     |> set_constructor_arguments(contract)
     |> set_external_libraries(contract)
     |> set_verified_contract_data(contract, address, optimization)
+    |> set_proxy_info(contract)
+  end
+
+  defp set_proxy_info(contract_output, contract) when contract == %{} do
+    contract_output
+  end
+
+  defp set_proxy_info(contract_output, contract) do
+    result =
+      if contract.is_proxy do
+        contract_output
+        |> Map.put_new(:ImplementationAddress, contract.implementation_address_hash_string)
+      else
+        contract_output
+      end
+
+    is_proxy_string = if contract.is_proxy, do: "true", else: "false"
+
+    result
+    |> Map.put_new(:IsProxy, is_proxy_string)
   end
 
   defp set_decompiled_contract_data(contract_output, decompiled_smart_contract) do
@@ -140,7 +168,33 @@ defmodule BlockScoutWeb.API.RPC.ContractView do
       |> Map.put_new(:CompilerVersion, Map.get(contract, :compiler_version, ""))
       |> Map.put_new(:OptimizationUsed, contract_optimization)
       |> Map.put_new(:EVMVersion, Map.get(contract, :evm_version, ""))
+      |> Map.put_new(:FileName, Map.get(contract, :file_path, "") || "")
+      |> insert_additional_sources(address)
     end
+  end
+
+  defp insert_additional_sources(output, address) do
+    additional_sources_from_twin = Chain.get_address_verified_twin_contract(address.hash).additional_sources
+
+    additional_sources =
+      if AddressView.smart_contract_verified?(address),
+        do: address.smart_contract_additional_sources,
+        else: additional_sources_from_twin
+
+    additional_sources_array =
+      if additional_sources,
+        do:
+          Enum.map(additional_sources, fn src ->
+            %{
+              Filename: src.file_name,
+              SourceCode: src.contract_source_code
+            }
+          end),
+        else: []
+
+    if additional_sources_array == [],
+      do: output,
+      else: Map.put_new(output, :AdditionalSources, additional_sources_array)
   end
 
   defp prepare_contract(%Address{

@@ -2,11 +2,11 @@ defmodule BlockScoutWeb.BlockTransactionController do
   use BlockScoutWeb, :controller
 
   import BlockScoutWeb.Chain,
-    only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
+    only: [paging_options: 1, put_key_value_to_paging_options: 3, next_page_params: 3, split_list_by_page: 1]
 
   import Explorer.Chain, only: [hash_to_block: 2, number_to_block: 2, string_to_block_hash: 1]
 
-  alias BlockScoutWeb.TransactionView
+  alias BlockScoutWeb.{Controller, TransactionView}
   alias Explorer.Chain
   alias Phoenix.View
 
@@ -23,10 +23,13 @@ defmodule BlockScoutWeb.BlockTransactionController do
                 :block => :optional,
                 [created_contract_address: :names] => :optional,
                 [from_address: :names] => :required,
-                [to_address: :names] => :optional
+                [to_address: :names] => :optional,
+                [created_contract_address: :smart_contract] => :optional,
+                [from_address: :smart_contract] => :optional,
+                [to_address: :smart_contract] => :optional
               }
             ],
-            paging_options(params)
+            put_key_value_to_paging_options(paging_options(params), :is_index_in_asc_order, true)
           )
 
         transactions_plus_one = Chain.block_to_transactions(block.hash, full_options)
@@ -110,7 +113,7 @@ defmodule BlockScoutWeb.BlockTransactionController do
           "index.html",
           block: block,
           block_transaction_count: block_transaction_count,
-          current_path: current_path(conn)
+          current_path: Controller.current_full_path(conn)
         )
 
       {:error, {:invalid, :hash}} ->

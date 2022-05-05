@@ -3,7 +3,7 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
 
   import BlockScoutWeb.Chain, only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
 
-  alias BlockScoutWeb.{AccessHelpers, TransactionController, TransactionTokenTransferView}
+  alias BlockScoutWeb.{AccessHelpers, Controller, TransactionController, TransactionTokenTransferView}
   alias Explorer.{Chain, Market}
   alias Explorer.ExchangeRates.Token
   alias Phoenix.View
@@ -25,6 +25,10 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
         Keyword.merge(
           [
             necessity_by_association: %{
+              [from_address: :smart_contract] => :optional,
+              [to_address: :smart_contract] => :optional,
+              [from_address: :names] => :optional,
+              [to_address: :names] => :optional,
               from_address: :required,
               to_address: :required,
               token: :required
@@ -101,7 +105,7 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
         "index.html",
         exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
         block_height: Chain.block_height(),
-        current_path: current_path(conn),
+        current_path: Controller.current_full_path(conn),
         show_token_transfers: true,
         transaction: transaction
       )
