@@ -7,7 +7,6 @@ defmodule BlockScoutWeb.LayoutView do
 
   import BlockScoutWeb.AddressView, only: [from_address_hash: 1]
 
-  @issue_url "https://github.com/REI-Network/rei-scan/issues/new"
   @default_other_networks [
     %{
       title: "Scan Mainnet",
@@ -63,7 +62,9 @@ defmodule BlockScoutWeb.LayoutView do
       title: subnetwork_title() <> ": <Issue Title>"
     ]
 
-    [@issue_url, "?", URI.encode_query(params)]
+    issue_url = "https://github.com/REI-Network/rei-scan/issues/new"
+
+    [issue_url, "?", URI.encode_query(params)]
   end
 
   defp issue_body(conn) do
