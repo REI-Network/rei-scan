@@ -237,6 +237,7 @@ $navbar-logo-width: 100% !default;
   flex-shrink: 1;
   display: inline-flex;
   .navbar-logo {
+    max-height: 28px;
     max-width: 100%;
   }
 }
