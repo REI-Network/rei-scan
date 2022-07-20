@@ -31,7 +31,7 @@ defmodule Indexer.Transform.Blocks do
 
       block = %{block | extra_data: extra_data}
 
-      signature_hash = clique_signature_hash(block)
+      signature_hash = signature_hash(block)
 
       recover_pub_key(signature_hash, decode(signature))
     else
