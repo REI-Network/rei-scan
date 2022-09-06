@@ -455,11 +455,12 @@
     putGasUsed(call) {
         let gasUsedBigInt = call.gasUsedBigInt;
         delete call.gasUsedBigInt;
+        if (call.error === undefined) {
+            if (gasUsedBigInt === undefined) {
+                gasUsedBigInt = bigInt.zero;
+            }
 
-        if (gasUsedBigInt === undefined) {
-            gasUsedBigInt = bigInt.zero;
+            call.gasUsed = '0x' + gasUsedBigInt.toString(16);
         }
-
-        call.gasUsed = '0x' + gasUsedBigInt.toString(16);
     }
 }
