@@ -332,7 +332,7 @@ defmodule EthereumJSONRPC.Geth.Call do
          "error" => error,
          "value" => value
        })
-       when call_type in ~w(call callcode delegatecall) do
+       when call_type in ~w(call staticcall callcode delegatecall) do
     %{
       block_number: block_number,
       transaction_index: transaction_index,
