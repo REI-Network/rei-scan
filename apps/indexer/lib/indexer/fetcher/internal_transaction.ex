@@ -119,6 +119,12 @@ defmodule Indexer.Fetcher.InternalTransaction do
 
       _ ->
         try do
+          # reset rpc time out to 1000sec for 10 blocks, 100s per block
+          # can not find env position, so hard code here
+          a0 = Keyword.replace!(json_rpc_named_arguments[:transport_options][:http_options], :recv_timeout, 1000_000)
+          a1 = Keyword.replace!(a0, :timeout, 1000_000)
+          a2 = Keyword.replace!(json_rpc_named_arguments[:transport_options], :http_options, a1)
+          json_rpc_named_arguments2 = Keyword.replace!(json_rpc_named_arguments, :transport_options, a2)
           fetch_block_internal_transactions_by_transactions(filtered_unique_numbers, json_rpc_named_arguments)
         rescue
           error ->
