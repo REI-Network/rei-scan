@@ -119,8 +119,8 @@ defmodule Indexer.Fetcher.InternalTransaction do
 
       _ ->
         try do
-          a0 = Keyword.replace!(json_rpc_named_arguments[:transport_options][:http_options], :recv_timeout, 1000_000)
-          a1 = Keyword.replace!(a0, :timeout, 1000_000)
+          a0 = Keyword.replace!(json_rpc_named_arguments[:transport_options][:http_options], :recv_timeout, :infinity)
+          a1 = Keyword.replace!(a0, :timeout, :infinity)
           a2 = Keyword.replace!(json_rpc_named_arguments[:transport_options], :http_options, a1)
           json_rpc_named_arguments2 = Keyword.replace!(json_rpc_named_arguments, :transport_options, a2)
           fetch_block_internal_transactions_by_transactions(filtered_unique_numbers, json_rpc_named_arguments2)
