@@ -442,14 +442,15 @@
     },
 
     putGas(call) {
-        let gasBigInt = call.gasBigInt;
-        delete call.gasBigInt;
 
-        if (gasBigInt === undefined) {
-            gasBigInt = bigInt.zero;
+        if (call.gasBigInt === undefined) {
+            call.gas = '0x0';
+        } else {
+            call.gas = '0x' + call.gasBigInt.toString(16);
         }
 
-        call.gas = '0x' + gasBigInt.toString(16);
+        delete call.gasBigInt;
+
     },
 
     putGasUsed(call) {

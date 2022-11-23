@@ -15,6 +15,7 @@ defmodule BlockScoutWeb.AddressCoinBalanceViewTest do
       wei = Wei.from(Decimal.new(-1_340_000_000), :gwei)
 
       assert AddressCoinBalanceView.format(wei) == "-1.34 REI"
+
     end
   end
 
@@ -51,6 +52,7 @@ defmodule BlockScoutWeb.AddressCoinBalanceViewTest do
       value = Decimal.new(1_340_000_000_000_000_000)
 
       assert AddressCoinBalanceView.format_delta(value) == "1.34 REI"
+
     end
 
     test "format negative values" do

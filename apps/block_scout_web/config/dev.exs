@@ -7,13 +7,6 @@ import Config
 # watchers to your application. For example, we use it
 # with webpack to recompile .js and .css sources.
 
-port =
-  case System.get_env("PORT") && Integer.parse(System.get_env("PORT")) do
-    {port, _} -> port
-    :error -> nil
-    nil -> nil
-  end
-
 config :block_scout_web, BlockScoutWeb.Endpoint,
   secret_key_base:
     System.get_env("SECRET_KEY_BASE") || "RMgI4C1HSkxsEjdhtGMfwAHfyT6CKWXOgzCboJflfSm4jeAlic52io05KB6mqzc5",
@@ -86,3 +79,5 @@ config :logger, :api,
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.
 config :phoenix, :stacktrace_depth, 20
+
+config :block_scout_web, :captcha_helper, BlockScoutWeb.CaptchaHelper
