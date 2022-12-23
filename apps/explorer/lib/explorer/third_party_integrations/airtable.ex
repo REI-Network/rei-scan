@@ -33,7 +33,7 @@ defmodule Explorer.ThirdPartyIntegrations.AirTable do
           request_id = Enum.at(Jason.decode!(body)["records"], 0)["fields"]["request_id"]
 
           new_request
-          |> PublicTagsRequest.changeset(%{request_id: request_id})
+          |> PublicTagsRequest.changeset(%{request_id: to_string(request_id)})
           |> Repo.account_repo().update()
 
           input
