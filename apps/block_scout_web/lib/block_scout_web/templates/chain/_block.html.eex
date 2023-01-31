@@ -20,7 +20,6 @@
             contract: false,
             use_custom_tooltip: false,
             custom_classes_tooltip: ["miner-address-tooltip"] %>
-            <%= render BlockScoutWeb.AddressView, "_labels.html", address_hash: @block.miner_hash, tags: @tags %>
         </div>
       <% end %>
       <%= if BlockScoutWeb.BlockView.show_reward?(@block.rewards) do %>
