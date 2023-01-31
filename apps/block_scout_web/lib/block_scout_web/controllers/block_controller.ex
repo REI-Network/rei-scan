@@ -3,6 +3,10 @@ defmodule BlockScoutWeb.BlockController do
 
   import BlockScoutWeb.Chain, only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
 
+  import BlockScoutWeb.Account.AuthController, only: [current_user: 1]
+
+  import BlockScoutWeb.Models.GetAddressTags, only: [get_address_tags: 2]
+
   alias BlockScoutWeb.{BlockView, Controller}
   alias Explorer.Chain
   alias Phoenix.View
@@ -99,7 +103,8 @@ defmodule BlockScoutWeb.BlockController do
               BlockView,
               "_tile.html",
               block: block,
-              block_type: block_type
+              block_type: block_type,
+              tags: get_address_tags(block.miner_hash, current_user(conn))
             )
           end),
         next_page_path: next_page_path
