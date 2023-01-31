@@ -44,7 +44,6 @@
             address: @block.miner,
             contract: false,
             use_custom_tooltip: false %>
-          <%= render BlockScoutWeb.AddressView, "_labels.html", address_hash: @block.miner_hash, tags: @tags %>
         </div>
       <% end %>
       <%= if show_reward?(@block.rewards) do %>
