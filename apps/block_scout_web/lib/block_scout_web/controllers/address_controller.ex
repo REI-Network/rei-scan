@@ -65,7 +65,8 @@ defmodule BlockScoutWeb.AddressController do
           index: items_count + index,
           exchange_rate: exchange_rate,
           total_supply: total_supply,
-          tx_count: tx_count
+          tx_count: tx_count,
+          tags: get_address_tags(address.hash, current_user(conn))
         )
       end)
 
