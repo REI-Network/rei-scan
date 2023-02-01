@@ -4,6 +4,11 @@ defmodule BlockScoutWeb.BlockChannel do
   """
   use BlockScoutWeb, :channel
 
+  import BlockScoutWeb.Account.AuthController, only: [current_user: 1]
+
+  import BlockScoutWeb.Models.GetAddressTags, only: [get_address_tags: 2]
+
+
   alias BlockScoutWeb.API.V2.BlockView, as: BlockViewAPI
   alias BlockScoutWeb.{BlockView, ChainView}
   alias Phoenix.View
@@ -42,14 +47,16 @@ defmodule BlockScoutWeb.BlockChannel do
         BlockView,
         "_tile.html",
         block: block,
-        block_type: BlockView.block_type(block)
+        block_type: BlockView.block_type(block),
+        tags: get_address_tags(block.miner_hash, nil)
       )
 
     rendered_chain_block =
       View.render_to_string(
         ChainView,
         "_block.html",
-        block: block
+        block: block,
+        tags: get_address_tags(block.miner_hash, nil)
       )
 
     push(socket, "new_block", %{

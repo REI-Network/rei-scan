@@ -103,7 +103,8 @@ defmodule BlockScoutWeb.BlockController do
               BlockView,
               "_tile.html",
               block: block,
-              block_type: block_type
+              block_type: block_type,
+              tags: get_address_tags(block.miner_hash, current_user(conn))
             )
           end),
         next_page_path: next_page_path

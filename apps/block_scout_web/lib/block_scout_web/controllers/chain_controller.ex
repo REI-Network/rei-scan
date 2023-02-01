@@ -141,7 +141,8 @@ defmodule BlockScoutWeb.ChainController do
               View.render_to_string(
                 ChainView,
                 "_block.html",
-                block: block
+                block: block,
+                tags: get_address_tags(block.miner_hash, current_user(conn))
               ),
             block_number: block.number
           }
