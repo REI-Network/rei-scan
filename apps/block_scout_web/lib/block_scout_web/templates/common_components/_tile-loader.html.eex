@@ -12,7 +12,7 @@
       <span class="tile-loader tile-address-loader"></span>
       <span class="tile-loader tile-address-loader"></span>
     </div>
-    <div class="col-md-3 col-lg-2 d-flex flex-row flex-md-column flex-nowrap justify-content-center text-md-right mt-3 mt-md-0 tile-bottom">
+    <div class="col-md-3 col-lg-2 d-flex flex-row flex-md-column flex-nowrap justify-content-center text-md-right mt-3 mt-md-0 tile-bottom pl-1">
       <span class="mr-2 mr-md-0 order-1">
         <span class="tile-loader tile-label-loader"></span>
       </span>
