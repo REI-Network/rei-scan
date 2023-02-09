@@ -58,7 +58,8 @@ defmodule BlockScoutWeb.AddressValidationController do
             "_tile.html",
             conn: conn,
             block: block,
-            block_type: BlockView.block_type(block)
+            block_type: BlockView.block_type(block),
+            tags: get_address_tags(address_hash, current_user(conn))
           )
         end)
 
