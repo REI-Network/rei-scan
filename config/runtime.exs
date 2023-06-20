@@ -407,7 +407,8 @@ config :indexer,
   last_block: System.get_env("LAST_BLOCK") || "",
   trace_first_block: System.get_env("TRACE_FIRST_BLOCK") || "",
   trace_last_block: System.get_env("TRACE_LAST_BLOCK") || "",
-  fetch_rewards_way: System.get_env("FETCH_REWARDS_WAY", "trace_block")
+  fetch_rewards_way: System.get_env("FETCH_REWARDS_WAY", "trace_block"),
+  hardfork_number: System.get_env("HARDFORK_NUMBER") || "0"
 
 {receipts_batch_size, _} = Integer.parse(System.get_env("INDEXER_RECEIPTS_BATCH_SIZE", "250"))
 {receipts_concurrency, _} = Integer.parse(System.get_env("INDEXER_RECEIPTS_CONCURRENCY", "10"))

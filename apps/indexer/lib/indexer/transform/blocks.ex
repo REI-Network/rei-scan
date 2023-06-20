@@ -39,22 +39,32 @@ defmodule Indexer.Transform.Blocks do
 
       block = %{block | extra_data: extra_data}
 
-      [evList | [ [ round | roundInfo ] | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
+      { hardfork_number, "" } = Integer.parse(Application.get_env(:indexer, :hardfork_number))
 
-      evHash = calcEvListHash(evList)
+      if block.number >= hardfork_number do
+        # after hardfork, BLS
+        [_ | [ _ | [ [proposer | _ ] | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
 
-      if (length(roundInfo) == 1) do
-        [ polRound ] = roundInfo
-
-        signature_hash = reimint_signature_hash(block, round, polRound, evHash)
-
-        recover_pub_key(signature_hash, proposal)
+        "0x" <> proposer
       else
-        [ polRound | [ commitRound ] ] = roundInfo
+        # before hardfork, ecdsa secp256k1
+        [evList | [ [ round | roundInfo ] | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
 
-        signature_hash = reimint_signature_hash(block, round, polRound, evHash)
+        evHash = calcEvListHash(evList)
 
-        recover_pub_key(signature_hash, proposal)
+        if (length(roundInfo) == 1) do
+          [ polRound ] = roundInfo
+
+          signature_hash = reimint_signature_hash(block, round, polRound, evHash)
+
+          recover_pub_key(signature_hash, proposal)
+        else
+          [ polRound | [ commitRound ] ] = roundInfo
+
+          signature_hash = reimint_signature_hash(block, round, polRound, evHash)
+
+          recover_pub_key(signature_hash, proposal)
+        end
       end
     end
   end
