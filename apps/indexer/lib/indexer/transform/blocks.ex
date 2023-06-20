@@ -45,7 +45,7 @@ defmodule Indexer.Transform.Blocks do
         # after hardfork, BLS
         [_ | [ _ | [ [proposer | _ ] | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
 
-        "0x" <> proposer
+        "0x" <> Base.encode16(proposer, case: :lower)
       else
         # before hardfork, ecdsa secp256k1
         [evList | [ [ round | roundInfo ] | [ proposal | _ ] ]] = ExRLP.decode(decode(encoded_ex_data))
