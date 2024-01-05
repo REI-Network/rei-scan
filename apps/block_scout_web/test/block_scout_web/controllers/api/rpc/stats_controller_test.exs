@@ -57,7 +57,7 @@ defmodule BlockScoutWeb.API.RPC.StatsControllerTest do
                |> get("/api", params)
                |> json_response(200)
 
-      assert response["message"] =~ "contract address not found"
+      assert response["message"] =~ "Contract address not found"
       assert response["status"] == "0"
       assert Map.has_key?(response, "result")
       refute response["result"]
@@ -169,6 +169,7 @@ defmodule BlockScoutWeb.API.RPC.StatsControllerTest do
         id: "test",
         last_updated: DateTime.utc_now(),
         market_cap_usd: Decimal.new("1000000.0"),
+        tvl_usd: Decimal.new("2000000.0"),
         name: "test",
         symbol: symbol,
         usd_value: Decimal.new("1.0"),

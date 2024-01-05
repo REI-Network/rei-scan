@@ -1,6 +1,14 @@
 defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
   use BlockScoutWeb.ConnCase
 
+  alias Explorer.Account.{
+    TagAddress,
+    TagTransaction,
+    WatchlistAddress
+  }
+
+  alias Explorer.Chain.Address
+  alias Explorer.Repo
   alias BlockScoutWeb.Models.UserFromAuth
 
   setup %{conn: conn} do
@@ -44,6 +52,50 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
       assert tag_address_response["address_hash"] == "0x3e9ac8f16c92bc4f093357933b5befbf1e16987b"
       assert tag_address_response["name"] == "MyName"
       assert tag_address_response["id"]
+    end
+
+    test "can't insert private address tags more than limit", %{conn: conn, user: user} do
+      old_env = Application.get_env(:explorer, Explorer.Account)
+
+      new_env =
+        old_env
+        |> Keyword.replace(:private_tags_limit, 5)
+        |> Keyword.replace(:watchlist_addresses_limit, 5)
+
+      Application.put_env(:explorer, Explorer.Account, new_env)
+
+      for _ <- 0..3 do
+        build(:tag_address_db, user: user) |> Repo.account_repo().insert()
+      end
+
+      assert conn
+             |> post("/api/account/v1/user/tags/address", build(:tag_address))
+             |> json_response(200)
+
+      assert conn
+             |> post("/api/account/v1/user/tags/address", build(:tag_address))
+             |> json_response(422)
+
+      Application.put_env(:explorer, Explorer.Account, old_env)
+    end
+
+    test "check address tags pagination", %{conn: conn, user: user} do
+      tags_address =
+        for _ <- 0..50 do
+          build(:tag_address_db, user: user) |> Repo.account_repo().insert!()
+        end
+
+      assert response =
+               conn
+               |> get("/api/account/v2/user/tags/address")
+               |> json_response(200)
+
+      response_1 =
+        conn
+        |> get("/api/account/v2/user/tags/address", response["next_page_params"])
+        |> json_response(200)
+
+      check_paginated_response(response, response_1, tags_address)
     end
 
     test "edit private address tag", %{conn: conn} do
@@ -92,7 +144,22 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
              |> json_response(200))["id"]
 
           {addr, %{"display_name" => name, "label" => name, "address_hash" => addr},
-           %{"address_hash" => addr, "id" => id, "name" => name}}
+           %{
+             "address_hash" => addr,
+             "id" => id,
+             "name" => name,
+             "address" => %{
+               "hash" => Address.checksum(addr),
+               "implementation_name" => nil,
+               "is_contract" => false,
+               "is_verified" => false,
+               "name" => nil,
+               "private_tags" => [],
+               "public_tags" => [],
+               "watchlist_names" => [],
+               "ens_domain_name" => nil
+             }
+           }}
         end)
 
       assert Enum.all?(created, fn {addr, map_tag, _} ->
@@ -129,7 +196,22 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
              |> json_response(200))["id"]
 
           {addr, %{"display_name" => name, "label" => name, "address_hash" => addr},
-           %{"address_hash" => addr, "id" => id, "name" => name}}
+           %{
+             "address_hash" => addr,
+             "id" => id,
+             "name" => name,
+             "address" => %{
+               "hash" => Address.checksum(addr),
+               "implementation_name" => nil,
+               "is_contract" => false,
+               "is_verified" => false,
+               "name" => nil,
+               "private_tags" => [],
+               "public_tags" => [],
+               "watchlist_names" => [],
+               "ens_domain_name" => nil
+             }
+           }}
         end)
 
       assert Enum.all?(created, fn {addr, map_tag, _} ->
@@ -204,6 +286,50 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
       assert tag_transaction_response["transaction_hash"] == tx_hash
       assert tag_transaction_response["name"] == "MyName"
       assert tag_transaction_response["id"]
+    end
+
+    test "can't insert private transaction tags more than limit", %{conn: conn, user: user} do
+      old_env = Application.get_env(:explorer, Explorer.Account)
+
+      new_env =
+        old_env
+        |> Keyword.replace(:private_tags_limit, 5)
+        |> Keyword.replace(:watchlist_addresses_limit, 5)
+
+      Application.put_env(:explorer, Explorer.Account, new_env)
+
+      for _ <- 0..3 do
+        build(:tag_transaction_db, user: user) |> Repo.account_repo().insert()
+      end
+
+      assert conn
+             |> post("/api/account/v1/user/tags/transaction", build(:tag_transaction))
+             |> json_response(200)
+
+      assert conn
+             |> post("/api/account/v1/user/tags/transaction", build(:tag_transaction))
+             |> json_response(422)
+
+      Application.put_env(:explorer, Explorer.Account, old_env)
+    end
+
+    test "check transaction tags pagination", %{conn: conn, user: user} do
+      tags_address =
+        for _ <- 0..50 do
+          build(:tag_transaction_db, user: user) |> Repo.account_repo().insert!()
+        end
+
+      assert response =
+               conn
+               |> get("/api/account/v2/user/tags/transaction")
+               |> json_response(200)
+
+      response_1 =
+        conn
+        |> get("/api/account/v2/user/tags/transaction", response["next_page_params"])
+        |> json_response(200)
+
+      check_paginated_response(response, response_1, tags_address)
     end
 
     test "edit private transaction tag", %{conn: conn} do
@@ -392,6 +518,50 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
       assert get_watchlist_address_response_1_1["id"] == post_watchlist_address_response_1["id"]
     end
 
+    test "can't insert watchlist addresses more than limit", %{conn: conn, user: user} do
+      old_env = Application.get_env(:explorer, Explorer.Account)
+
+      new_env =
+        old_env
+        |> Keyword.replace(:private_tags_limit, 5)
+        |> Keyword.replace(:watchlist_addresses_limit, 5)
+
+      Application.put_env(:explorer, Explorer.Account, new_env)
+
+      for _ <- 0..3 do
+        build(:watchlist_address_db, wl_id: user.watchlist_id) |> Repo.account_repo().insert()
+      end
+
+      assert conn
+             |> post("/api/account/v1/user/watchlist", build(:watchlist_address))
+             |> json_response(200)
+
+      assert conn
+             |> post("/api/account/v1/user/watchlist", build(:watchlist_address))
+             |> json_response(422)
+
+      Application.put_env(:explorer, Explorer.Account, old_env)
+    end
+
+    test "check watchlist tags pagination", %{conn: conn, user: user} do
+      tags_address =
+        for _ <- 0..50 do
+          build(:watchlist_address_db, wl_id: user.watchlist_id) |> Repo.account_repo().insert!()
+        end
+
+      assert response =
+               conn
+               |> get("/api/account/v2/user/watchlist")
+               |> json_response(200)
+
+      response_1 =
+        conn
+        |> get("/api/account/v2/user/watchlist", response["next_page_params"])
+        |> json_response(200)
+
+      check_paginated_response(response, response_1, tags_address)
+    end
+
     test "delete watchlist address", %{conn: conn} do
       watchlist_address_map = build(:watchlist_address)
 
@@ -542,6 +712,111 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
              )
              |> doc(description: "Example of error on editing watchlist address")
              |> json_response(422) == %{"errors" => %{"watchlist_id" => ["Address already added to the watch list"]}}
+    end
+
+    test "watchlist address returns with token balances info", %{conn: conn} do
+      watchlist_address_map = build(:watchlist_address)
+
+      conn
+      |> post(
+        "/api/account/v1/user/watchlist",
+        watchlist_address_map
+      )
+      |> json_response(200)
+
+      watchlist_address_map_1 = build(:watchlist_address)
+
+      conn
+      |> post(
+        "/api/account/v1/user/watchlist",
+        watchlist_address_map_1
+      )
+      |> json_response(200)
+
+      values =
+        for _i <- 0..149 do
+          ctb =
+            insert(:address_current_token_balance_with_token_id,
+              address: Repo.get_by(Address, hash: watchlist_address_map["address_hash"])
+            )
+            |> Repo.preload([:token])
+
+          Decimal.div(
+            Decimal.mult(ctb.value, ctb.token.fiat_value),
+            Decimal.new(10 ** Decimal.to_integer(ctb.token.decimals))
+          )
+        end
+
+      values_1 =
+        for _i <- 0..200 do
+          ctb =
+            insert(:address_current_token_balance_with_token_id,
+              address: Repo.get_by(Address, hash: watchlist_address_map_1["address_hash"])
+            )
+            |> Repo.preload([:token])
+
+          Decimal.div(
+            Decimal.mult(ctb.value, ctb.token.fiat_value),
+            Decimal.new(10 ** Decimal.to_integer(ctb.token.decimals))
+          )
+        end
+        |> Enum.sort(fn x1, x2 -> Decimal.compare(x1, x2) in [:gt, :eq] end)
+        |> Enum.take(150)
+
+      [wa2, wa1] = conn |> get("/api/account/v1/user/watchlist") |> json_response(200)
+
+      assert wa1["tokens_fiat_value"] |> Decimal.new() |> Decimal.round(13) ==
+               values |> Enum.reduce(Decimal.new(0), fn x, acc -> Decimal.add(x, acc) end) |> Decimal.round(13)
+
+      assert wa1["tokens_count"] == 150
+      assert wa1["tokens_overflow"] == false
+
+      assert wa2["tokens_fiat_value"] |> Decimal.new() |> Decimal.round(13) ==
+               values_1 |> Enum.reduce(Decimal.new(0), fn x, acc -> Decimal.add(x, acc) end) |> Decimal.round(13)
+
+      assert wa2["tokens_count"] == 150
+      assert wa2["tokens_overflow"] == true
+    end
+
+    test "watchlist address returns with token balances info + handle nil fiat values", %{conn: conn} do
+      watchlist_address_map = build(:watchlist_address)
+
+      conn
+      |> post(
+        "/api/account/v1/user/watchlist",
+        watchlist_address_map
+      )
+      |> json_response(200)
+
+      values =
+        for _i <- 0..148 do
+          ctb =
+            insert(:address_current_token_balance_with_token_id,
+              address: Repo.get_by(Address, hash: watchlist_address_map["address_hash"])
+            )
+            |> Repo.preload([:token])
+
+          Decimal.div(
+            Decimal.mult(ctb.value, ctb.token.fiat_value),
+            Decimal.new(10 ** Decimal.to_integer(ctb.token.decimals))
+          )
+        end
+
+      token = insert(:token, fiat_value: nil)
+
+      insert(:address_current_token_balance_with_token_id,
+        address: Repo.get_by(Address, hash: watchlist_address_map["address_hash"]),
+        token: token,
+        token_contract_address_hash: token.contract_address_hash
+      )
+
+      [wa1] = conn |> get("/api/account/v1/user/watchlist") |> json_response(200)
+
+      assert wa1["tokens_fiat_value"] |> Decimal.new() |> Decimal.round(13) ==
+               values |> Enum.reduce(Decimal.new(0), fn x, acc -> Decimal.add(x, acc) end) |> Decimal.round(13)
+
+      assert wa1["tokens_count"] == 150
+      assert wa1["tokens_overflow"] == false
     end
 
     test "post api key", %{conn: conn} do
@@ -750,10 +1025,10 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
   end
 
   describe "public tags" do
-    test "create public tags reuqest", %{conn: conn} do
+    test "create public tags request", %{conn: conn} do
       public_tags_request = build(:public_tags_request)
 
-      post_public_tasg_request_response =
+      post_public_tags_request_response =
         conn
         |> post(
           "/api/account/v1/user/public_tags",
@@ -762,21 +1037,21 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
         |> doc(description: "Submit request to add a public tag")
         |> json_response(200)
 
-      assert post_public_tasg_request_response["full_name"] == public_tags_request["full_name"]
-      assert post_public_tasg_request_response["email"] == public_tags_request["email"]
-      assert post_public_tasg_request_response["tags"] == public_tags_request["tags"]
-      assert post_public_tasg_request_response["website"] == public_tags_request["website"]
-      assert post_public_tasg_request_response["additional_comment"] == public_tags_request["additional_comment"]
-      assert post_public_tasg_request_response["addresses"] == public_tags_request["addresses"]
-      assert post_public_tasg_request_response["company"] == public_tags_request["company"]
-      assert post_public_tasg_request_response["is_owner"] == public_tags_request["is_owner"]
-      assert post_public_tasg_request_response["id"]
+      assert post_public_tags_request_response["full_name"] == public_tags_request["full_name"]
+      assert post_public_tags_request_response["email"] == public_tags_request["email"]
+      assert post_public_tags_request_response["tags"] == public_tags_request["tags"]
+      assert post_public_tags_request_response["website"] == public_tags_request["website"]
+      assert post_public_tags_request_response["additional_comment"] == public_tags_request["additional_comment"]
+      assert post_public_tags_request_response["addresses"] == public_tags_request["addresses"]
+      assert post_public_tags_request_response["company"] == public_tags_request["company"]
+      assert post_public_tags_request_response["is_owner"] == public_tags_request["is_owner"]
+      assert post_public_tags_request_response["id"]
     end
 
     test "get one public tags requests", %{conn: conn} do
       public_tags_request = build(:public_tags_request)
 
-      post_public_tasg_request_response =
+      post_public_tags_request_response =
         conn
         |> post(
           "/api/account/v1/user/public_tags",
@@ -784,21 +1059,21 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
         )
         |> json_response(200)
 
-      assert post_public_tasg_request_response["full_name"] == public_tags_request["full_name"]
-      assert post_public_tasg_request_response["email"] == public_tags_request["email"]
-      assert post_public_tasg_request_response["tags"] == public_tags_request["tags"]
-      assert post_public_tasg_request_response["website"] == public_tags_request["website"]
-      assert post_public_tasg_request_response["additional_comment"] == public_tags_request["additional_comment"]
-      assert post_public_tasg_request_response["addresses"] == public_tags_request["addresses"]
-      assert post_public_tasg_request_response["company"] == public_tags_request["company"]
-      assert post_public_tasg_request_response["is_owner"] == public_tags_request["is_owner"]
-      assert post_public_tasg_request_response["id"]
+      assert post_public_tags_request_response["full_name"] == public_tags_request["full_name"]
+      assert post_public_tags_request_response["email"] == public_tags_request["email"]
+      assert post_public_tags_request_response["tags"] == public_tags_request["tags"]
+      assert post_public_tags_request_response["website"] == public_tags_request["website"]
+      assert post_public_tags_request_response["additional_comment"] == public_tags_request["additional_comment"]
+      assert post_public_tags_request_response["addresses"] == public_tags_request["addresses"]
+      assert post_public_tags_request_response["company"] == public_tags_request["company"]
+      assert post_public_tags_request_response["is_owner"] == public_tags_request["is_owner"]
+      assert post_public_tags_request_response["id"]
 
       assert conn
              |> get("/api/account/v1/user/public_tags")
              |> json_response(200)
              |> Enum.map(&convert_date/1) ==
-               [post_public_tasg_request_response]
+               [post_public_tags_request_response]
                |> Enum.map(&convert_date/1)
     end
 
@@ -857,7 +1132,7 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
     test "edit public tags request", %{conn: conn} do
       public_tags_request = build(:public_tags_request)
 
-      post_public_tasg_request_response =
+      post_public_tags_request_response =
         conn
         |> post(
           "/api/account/v1/user/public_tags",
@@ -865,49 +1140,49 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
         )
         |> json_response(200)
 
-      assert post_public_tasg_request_response["full_name"] == public_tags_request["full_name"]
-      assert post_public_tasg_request_response["email"] == public_tags_request["email"]
-      assert post_public_tasg_request_response["tags"] == public_tags_request["tags"]
-      assert post_public_tasg_request_response["website"] == public_tags_request["website"]
-      assert post_public_tasg_request_response["additional_comment"] == public_tags_request["additional_comment"]
-      assert post_public_tasg_request_response["addresses"] == public_tags_request["addresses"]
-      assert post_public_tasg_request_response["company"] == public_tags_request["company"]
-      assert post_public_tasg_request_response["is_owner"] == public_tags_request["is_owner"]
-      assert post_public_tasg_request_response["id"]
+      assert post_public_tags_request_response["full_name"] == public_tags_request["full_name"]
+      assert post_public_tags_request_response["email"] == public_tags_request["email"]
+      assert post_public_tags_request_response["tags"] == public_tags_request["tags"]
+      assert post_public_tags_request_response["website"] == public_tags_request["website"]
+      assert post_public_tags_request_response["additional_comment"] == public_tags_request["additional_comment"]
+      assert post_public_tags_request_response["addresses"] == public_tags_request["addresses"]
+      assert post_public_tags_request_response["company"] == public_tags_request["company"]
+      assert post_public_tags_request_response["is_owner"] == public_tags_request["is_owner"]
+      assert post_public_tags_request_response["id"]
 
       assert conn
              |> get("/api/account/v1/user/public_tags")
              |> json_response(200)
              |> Enum.map(&convert_date/1) ==
-               [post_public_tasg_request_response]
+               [post_public_tags_request_response]
                |> Enum.map(&convert_date/1)
 
       new_public_tags_request = build(:public_tags_request)
 
-      put_public_tasg_request_response =
+      put_public_tags_request_response =
         conn
         |> put(
-          "/api/account/v1/user/public_tags/#{post_public_tasg_request_response["id"]}",
+          "/api/account/v1/user/public_tags/#{post_public_tags_request_response["id"]}",
           new_public_tags_request
         )
         |> doc(description: "Edit request to add a public tag")
         |> json_response(200)
 
-      assert put_public_tasg_request_response["full_name"] == new_public_tags_request["full_name"]
-      assert put_public_tasg_request_response["email"] == new_public_tags_request["email"]
-      assert put_public_tasg_request_response["tags"] == new_public_tags_request["tags"]
-      assert put_public_tasg_request_response["website"] == new_public_tags_request["website"]
-      assert put_public_tasg_request_response["additional_comment"] == new_public_tags_request["additional_comment"]
-      assert put_public_tasg_request_response["addresses"] == new_public_tags_request["addresses"]
-      assert put_public_tasg_request_response["company"] == new_public_tags_request["company"]
-      assert put_public_tasg_request_response["is_owner"] == new_public_tags_request["is_owner"]
-      assert put_public_tasg_request_response["id"] == post_public_tasg_request_response["id"]
+      assert put_public_tags_request_response["full_name"] == new_public_tags_request["full_name"]
+      assert put_public_tags_request_response["email"] == new_public_tags_request["email"]
+      assert put_public_tags_request_response["tags"] == new_public_tags_request["tags"]
+      assert put_public_tags_request_response["website"] == new_public_tags_request["website"]
+      assert put_public_tags_request_response["additional_comment"] == new_public_tags_request["additional_comment"]
+      assert put_public_tags_request_response["addresses"] == new_public_tags_request["addresses"]
+      assert put_public_tags_request_response["company"] == new_public_tags_request["company"]
+      assert put_public_tags_request_response["is_owner"] == new_public_tags_request["is_owner"]
+      assert put_public_tags_request_response["id"] == post_public_tags_request_response["id"]
 
       assert conn
              |> get("/api/account/v1/user/public_tags")
              |> json_response(200)
              |> Enum.map(&convert_date/1) ==
-               [put_public_tasg_request_response]
+               [put_public_tags_request_response]
                |> Enum.map(&convert_date/1)
     end
   end
@@ -915,5 +1190,53 @@ defmodule BlockScoutWeb.Account.Api.V1.UserControllerTest do
   def convert_date(request) do
     {:ok, time, _} = DateTime.from_iso8601(request["submission_date"])
     %{request | "submission_date" => Calendar.strftime(time, "%b %d, %Y")}
+  end
+
+  defp compare_item(%TagAddress{} = tag_address, json) do
+    assert json["address_hash"] == to_string(tag_address.address_hash)
+    assert json["name"] == tag_address.name
+    assert json["id"] == tag_address.id
+    assert json["address"]["hash"] == Address.checksum(tag_address.address_hash)
+  end
+
+  defp compare_item(%TagTransaction{} = tag_transaction, json) do
+    assert json["transaction_hash"] == to_string(tag_transaction.tx_hash)
+    assert json["name"] == tag_transaction.name
+    assert json["id"] == tag_transaction.id
+  end
+
+  defp compare_item(%WatchlistAddress{} = watchlist, json) do
+    notification_settings = %{
+      "native" => %{
+        "incoming" => watchlist.watch_coin_input,
+        "outcoming" => watchlist.watch_coin_output
+      },
+      "ERC-20" => %{
+        "incoming" => watchlist.watch_erc_20_input,
+        "outcoming" => watchlist.watch_erc_20_output
+      },
+      "ERC-721" => %{
+        "incoming" => watchlist.watch_erc_721_input,
+        "outcoming" => watchlist.watch_erc_721_output
+      }
+    }
+
+    assert json["address_hash"] == to_string(watchlist.address_hash)
+    assert json["name"] == watchlist.name
+    assert json["id"] == watchlist.id
+    assert json["address"]["hash"] == Address.checksum(watchlist.address_hash)
+    assert json["notification_methods"]["email"] == watchlist.notify_email
+    assert json["notification_settings"] == notification_settings
+  end
+
+  defp check_paginated_response(first_page_resp, second_page_resp, list) do
+    assert Enum.count(first_page_resp["items"]) == 50
+    assert first_page_resp["next_page_params"] != nil
+    compare_item(Enum.at(list, 50), Enum.at(first_page_resp["items"], 0))
+    compare_item(Enum.at(list, 1), Enum.at(first_page_resp["items"], 49))
+
+    assert Enum.count(second_page_resp["items"]) == 1
+    assert second_page_resp["next_page_params"] == nil
+    compare_item(Enum.at(list, 0), Enum.at(second_page_resp["items"], 0))
   end
 end

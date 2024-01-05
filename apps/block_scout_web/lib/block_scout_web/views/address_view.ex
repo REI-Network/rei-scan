@@ -3,11 +3,13 @@ defmodule BlockScoutWeb.AddressView do
 
   require Logger
 
-  alias BlockScoutWeb.{AccessHelpers, LayoutView}
+  alias BlockScoutWeb.{AccessHelper, LayoutView}
   alias Explorer.Account.CustomABI
-  alias Explorer.{Chain, CustomContractsHelpers, Repo}
-  alias Explorer.Chain.{Address, Hash, InternalTransaction, SmartContract, Token, TokenTransfer, Transaction, Wei}
+  alias Explorer.{Chain, CustomContractsHelper, Repo}
+  alias Explorer.Chain.Address.Counters
+  alias Explorer.Chain.{Address, Hash, InternalTransaction, Log, SmartContract, Token, TokenTransfer, Transaction, Wei}
   alias Explorer.Chain.Block.Reward
+  alias Explorer.Chain.SmartContract.Proxy
   alias Explorer.ExchangeRates.Token, as: TokenExchangeRate
   alias Explorer.SmartContract.{Helper, Writer}
 
@@ -181,9 +183,7 @@ defmodule BlockScoutWeb.AddressView do
   @doc """
   Returns the primary name of an address if available. If there is no names on address function performs preload of names association.
   """
-  def primary_name(_, second_time? \\ false)
-
-  def primary_name(%Address{names: [_ | _] = address_names}, _second_time?) do
+  def primary_name(%Address{names: [_ | _] = address_names}) do
     case Enum.find(address_names, &(&1.primary == true)) do
       nil ->
         %Address.Name{name: name} = Enum.at(address_names, 0)
@@ -194,11 +194,20 @@ defmodule BlockScoutWeb.AddressView do
     end
   end
 
-  def primary_name(%Address{names: _} = address, false) do
-    primary_name(Repo.preload(address, [:names]), true)
+  def primary_name(%Address{names: %Ecto.Association.NotLoaded{}} = address) do
+    primary_name(Repo.preload(address, [:names]))
   end
 
-  def primary_name(%Address{names: _}, true), do: nil
+  def primary_name(%Address{names: _} = address) do
+    with false <- is_nil(address.contract_code),
+         twin <- SmartContract.get_verified_twin_contract(address),
+         false <- is_nil(twin) do
+      twin.name
+    else
+      _ ->
+        nil
+    end
+  end
 
   def implementation_name(%Address{smart_contract: %{implementation_name: implementation_name}}),
     do: implementation_name
@@ -250,24 +259,27 @@ defmodule BlockScoutWeb.AddressView do
     Enum.any?(address.smart_contract.abi || [], &is_read_function?(&1))
   end
 
-  def smart_contract_with_read_only_functions?(%Address{smart_contract: nil}), do: false
+  def smart_contract_with_read_only_functions?(%Address{smart_contract: _}), do: false
 
   def is_read_function?(function), do: Helper.queriable_method?(function) || Helper.read_with_wallet_method?(function)
 
-  def smart_contract_is_proxy?(%Address{smart_contract: %SmartContract{}} = address) do
-    Chain.proxy_contract?(address.hash, address.smart_contract.abi)
+  def smart_contract_is_proxy?(address, options \\ [])
+
+  def smart_contract_is_proxy?(%Address{smart_contract: %SmartContract{} = smart_contract}, options) do
+    Proxy.proxy_contract?(smart_contract, options)
   end
 
-  def smart_contract_is_proxy?(%Address{smart_contract: nil}), do: false
+  def smart_contract_is_proxy?(%Address{smart_contract: _}, _), do: false
 
   def smart_contract_with_write_functions?(%Address{smart_contract: %SmartContract{}} = address) do
-    Enum.any?(
-      address.smart_contract.abi || [],
-      &Writer.write_function?(&1)
-    )
+    !contract_interaction_disabled?() &&
+      Enum.any?(
+        address.smart_contract.abi || [],
+        &Writer.write_function?(&1)
+      )
   end
 
-  def smart_contract_with_write_functions?(%Address{smart_contract: nil}), do: false
+  def smart_contract_with_write_functions?(%Address{smart_contract: _}), do: false
 
   def has_decompiled_code?(address) do
     address.has_decompiled_code? ||
@@ -445,7 +457,7 @@ defmodule BlockScoutWeb.AddressView do
   end
 
   def smart_contract_is_gnosis_safe_proxy?(%Address{smart_contract: %SmartContract{}} = address) do
-    address.smart_contract.name == "GnosisSafeProxy" && Chain.gnosis_safe_contract?(address.smart_contract.abi)
+    address.smart_contract.name == "GnosisSafeProxy" && Proxy.gnosis_safe_contract?(address.smart_contract.abi)
   end
 
   def smart_contract_is_gnosis_safe_proxy?(_address), do: false
@@ -471,11 +483,30 @@ defmodule BlockScoutWeb.AddressView do
     do: !is_nil(custom_abi) && Enum.any?(custom_abi.abi, &is_read_function?(&1))
 
   def has_address_custom_abi_with_write_functions?(conn, address_hash) do
-    custom_abi = fetch_custom_abi(conn, address_hash)
+    if contract_interaction_disabled?() do
+      false
+    else
+      custom_abi = fetch_custom_abi(conn, address_hash)
 
-    check_custom_abi_for_having_write_functions(custom_abi)
+      check_custom_abi_for_having_write_functions(custom_abi)
+    end
   end
 
   def check_custom_abi_for_having_write_functions(custom_abi),
     do: !is_nil(custom_abi) && Enum.any?(custom_abi.abi, &Writer.write_function?(&1))
+
+  def contract_interaction_disabled?, do: Application.get_env(:block_scout_web, :contract)[:disable_interaction]
+
+  @doc """
+    Decodes given log
+  """
+  @spec decode(Log.t(), Transaction.t()) ::
+          {:ok, String.t(), String.t(), map()}
+          | {:error, atom()}
+          | {:error, atom(), list()}
+          | {{:error, :contract_not_verified, list()}, any()}
+  def decode(log, transaction) do
+    {result, _contracts_acc, _events_acc} = Log.decode(log, transaction, [], true)
+    result
+  end
 end

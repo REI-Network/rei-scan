@@ -3,7 +3,7 @@ defmodule EthereumJSONRPC.HTTP do
   JSONRPC over HTTP
   """
 
-  alias EthereumJSONRPC.Transport
+  alias EthereumJSONRPC.{DecodeError, Transport, Utility.EndpointAvailabilityObserver}
 
   require Logger
 
@@ -14,7 +14,7 @@ defmodule EthereumJSONRPC.HTTP do
   @doc """
   Sends JSONRPC request encoded as `t:iodata/0` to `url` with `options`
   """
-  @callback json_rpc(url :: String.t(), json :: iodata(), options :: term()) ::
+  @callback json_rpc(url :: String.t(), json :: iodata(), headers :: [{String.t(), String.t()}], options :: term()) ::
               {:ok, %{body: body :: String.t(), status_code: status_code :: pos_integer()}}
               | {:error, reason :: term}
 
@@ -26,10 +26,20 @@ defmodule EthereumJSONRPC.HTTP do
     url = url(options, method)
     http_options = Keyword.fetch!(options, :http_options)
 
-    with {:ok, %{body: body, status_code: code}} <- http.json_rpc(url, json, http_options),
-         {:ok, json} <- decode_json(request: [url: url, body: json], response: [status_code: code, body: body]) do
-      handle_response(json, code)
+    with {:ok, %{body: body, status_code: code}} <- http.json_rpc(url, json, headers(), http_options),
+         {:ok, json} <- decode_json(request: [url: url, body: json], response: [status_code: code, body: body]),
+         {:ok, response} <- handle_response(json, code) do
+      {:ok, response}
+    else
+      error ->
+        named_arguments = [transport: __MODULE__, transport_options: Keyword.delete(options, :method_to_url)]
+        EndpointAvailabilityObserver.inc_error_count(url, named_arguments)
+        error
     end
+  end
+
+  def json_rpc([batch | _] = chunked_batch_request, options) when is_list(batch) do
+    chunked_json_rpc(chunked_batch_request, options, [])
   end
 
   def json_rpc(batch_request, options) when is_list(batch_request) do
@@ -60,7 +70,7 @@ defmodule EthereumJSONRPC.HTTP do
 
     json = encode_json(batch)
 
-    case http.json_rpc(url, json, http_options) do
+    case http.json_rpc(url, json, headers(), http_options) do
       {:ok, %{status_code: status_code} = response} when status_code in [413, 504] ->
         rechunk_json_rpc(chunks, options, response, decoded_response_bodies)
 
@@ -74,6 +84,8 @@ defmodule EthereumJSONRPC.HTTP do
         rechunk_json_rpc(chunks, options, :timeout, decoded_response_bodies)
 
       {:error, _} = error ->
+        named_arguments = [transport: __MODULE__, transport_options: Keyword.delete(options, :method_to_url)]
+        EndpointAvailabilityObserver.inc_error_count(url, named_arguments)
         error
     end
   end
@@ -82,9 +94,20 @@ defmodule EthereumJSONRPC.HTTP do
     case length(batch) do
       # it can't be made any smaller
       1 ->
+        old_truncate = Application.get_env(:logger, :truncate)
+        Logger.configure(truncate: :infinity)
+
         Logger.error(fn ->
-          "413 Request Entity Too Large returned from single request batch.  Cannot shrink batch further."
+          [
+            "413 Request Entity Too Large returned from single request batch. Cannot shrink batch further. ",
+            "The actual batched request was ",
+            "#{inspect(batch)}. ",
+            "The actual response of the method was ",
+            "#{inspect(response)}."
+          ]
         end)
+
+        Logger.configure(truncate: old_truncate)
 
         {:error, response}
 
@@ -114,7 +137,17 @@ defmodule EthereumJSONRPC.HTTP do
           {:error, {:bad_gateway, request_url}}
 
         _ ->
-          raise EthereumJSONRPC.DecodeError, named_arguments
+          named_arguments
+          |> DecodeError.exception()
+          |> DecodeError.message()
+          |> Logger.error()
+
+          request_url =
+            named_arguments
+            |> Keyword.fetch!(:request)
+            |> Keyword.fetch!(:url)
+
+          {:error, {:bad_response, request_url}}
       end
     end
   end
@@ -138,15 +171,18 @@ defmodule EthereumJSONRPC.HTTP do
 
     standardized = %{jsonrpc: jsonrpc, id: id}
 
-    case unstandardized do
-      %{"result" => _, "error" => _} ->
+    case {id, unstandardized} do
+      {_id, %{"result" => _, "error" => _}} ->
         raise ArgumentError,
               "result and error keys are mutually exclusive in JSONRPC 2.0 response objects, but got #{inspect(unstandardized)}"
 
-      %{"result" => result} ->
+      {nil, %{"result" => error}} ->
+        Map.put(standardized, :error, standardize_error(error))
+
+      {_id, %{"result" => result}} ->
         Map.put(standardized, :result, result)
 
-      %{"error" => error} ->
+      {_id, %{"error" => error}} ->
         Map.put(standardized, :error, standardize_error(error))
     end
   end
@@ -167,9 +203,12 @@ defmodule EthereumJSONRPC.HTTP do
     with {:ok, method_to_url} <- Keyword.fetch(options, :method_to_url),
          {:ok, method_atom} <- to_existing_atom(method),
          {:ok, url} <- Keyword.fetch(method_to_url, method_atom) do
-      url
+      EndpointAvailabilityObserver.maybe_replace_url(url, options[:fallback_trace_url])
     else
-      _ -> Keyword.fetch!(options, :url)
+      _ ->
+        options
+        |> Keyword.fetch!(:url)
+        |> EndpointAvailabilityObserver.maybe_replace_url(options[:fallback_url])
     end
   end
 
@@ -178,5 +217,9 @@ defmodule EthereumJSONRPC.HTTP do
   rescue
     ArgumentError ->
       :error
+  end
+
+  defp headers do
+    Application.get_env(:ethereum_jsonrpc, __MODULE__)[:headers]
   end
 end

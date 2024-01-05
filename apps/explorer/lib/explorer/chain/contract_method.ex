@@ -5,6 +5,7 @@ defmodule Explorer.Chain.ContractMethod do
 
   require Logger
 
+  import Ecto.Query, only: [from: 2]
   use Explorer.Schema
 
   alias Explorer.Chain.{Hash, MethodIdentifier, SmartContract}
@@ -69,6 +70,18 @@ defmodule Explorer.Chain.ContractMethod do
     end
   end
 
+  @doc """
+  Finds limited number of contract methods by selector id
+  """
+  @spec find_contract_method_query(binary(), integer()) :: Ecto.Query.t()
+  def find_contract_method_query(method_id, limit) do
+    from(
+      contract_method in __MODULE__,
+      where: contract_method.identifier == ^method_id,
+      limit: ^limit
+    )
+  end
+
   defp abi_element_to_contract_method(element) do
     case ABI.parse_specification([element], include_events?: true) do
       [selector] ->
@@ -87,7 +100,7 @@ defmodule Explorer.Chain.ContractMethod do
     end
   rescue
     e ->
-      message = Exception.format(:error, e)
+      message = Exception.format(:error, e, __STACKTRACE__)
 
       {:error, message}
   end

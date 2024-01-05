@@ -1,7 +1,7 @@
 defmodule Explorer.Chain.Address.CoinBalanceDaily do
   @moduledoc """
   Maximum `t:Explorer.Chain.Wei.t/0` `value` of `t:Explorer.Chain.Address.t/0` at the day.
-  This table is used to display coinn balance history chart.
+  This table is used to display coin balance history chart.
   """
 
   use Explorer.Schema
@@ -46,9 +46,8 @@ defmodule Explorer.Chain.Address.CoinBalanceDaily do
   `n` is configurable via COIN_BALANCE_HISTORY_DAYS ENV var.
   """
   def balances_by_day(address_hash) do
-    {days_to_consider, _} =
+    days_to_consider =
       Application.get_env(:block_scout_web, BlockScoutWeb.Chain.Address.CoinBalance)[:coin_balance_history_days]
-      |> Integer.parse()
 
     CoinBalanceDaily
     |> where([cbd], cbd.address_hash == ^address_hash)
@@ -70,7 +69,6 @@ defmodule Explorer.Chain.Address.CoinBalanceDaily do
     balance
     |> cast(params, @allowed_fields)
     |> validate_required(@required_fields)
-    |> foreign_key_constraint(:address_hash)
     |> unique_constraint(:day, name: :address_coin_balances_daily_address_hash_day_index)
   end
 end

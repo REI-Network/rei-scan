@@ -1,6 +1,8 @@
 defmodule BlockScoutWeb.Account.Api.V1.UserView do
   alias BlockScoutWeb.Account.Api.V1.AccountView
+  alias BlockScoutWeb.API.V2.Helper
   alias Ecto.Changeset
+  alias Explorer.Chain
 
   def render("message.json", assigns) do
     AccountView.render("message.json", assigns)
@@ -8,6 +10,17 @@ defmodule BlockScoutWeb.Account.Api.V1.UserView do
 
   def render("user_info.json", %{identity: identity}) do
     %{"name" => identity.name, "email" => identity.email, "avatar" => identity.avatar, "nickname" => identity.nickname}
+  end
+
+  def render("watchlist_addresses.json", %{
+        watchlist_addresses: watchlist_addresses,
+        exchange_rate: exchange_rate,
+        next_page_params: next_page_params
+      }) do
+    %{
+      "items" => Enum.map(watchlist_addresses, &prepare_watchlist_address(&1, exchange_rate)),
+      "next_page_params" => next_page_params
+    }
   end
 
   def render("watchlist_addresses.json", %{watchlist_addresses: watchlist_addresses, exchange_rate: exchange_rate}) do
@@ -18,12 +31,20 @@ defmodule BlockScoutWeb.Account.Api.V1.UserView do
     prepare_watchlist_address(watchlist_address, exchange_rate)
   end
 
+  def render("address_tags.json", %{address_tags: address_tags, next_page_params: next_page_params}) do
+    %{"items" => Enum.map(address_tags, &prepare_address_tag/1), "next_page_params" => next_page_params}
+  end
+
   def render("address_tags.json", %{address_tags: address_tags}) do
     Enum.map(address_tags, &prepare_address_tag/1)
   end
 
   def render("address_tag.json", %{address_tag: address_tag}) do
     prepare_address_tag(address_tag)
+  end
+
+  def render("transaction_tags.json", %{transaction_tags: transaction_tags, next_page_params: next_page_params}) do
+    %{"items" => Enum.map(transaction_tags, &prepare_transaction_tag/1), "next_page_params" => next_page_params}
   end
 
   def render("transaction_tags.json", %{transaction_tags: transaction_tags}) do
@@ -70,11 +91,14 @@ defmodule BlockScoutWeb.Account.Api.V1.UserView do
   end
 
   def prepare_watchlist_address(watchlist, exchange_rate) do
+    address = get_address(watchlist.address_hash)
+
     %{
       "id" => watchlist.id,
+      "address" => Helper.address_with_info(nil, address, watchlist.address_hash, false),
       "address_hash" => watchlist.address_hash,
       "name" => watchlist.name,
-      "address_balance" => if(watchlist.fetched_coin_balance, do: watchlist.fetched_coin_balance.value),
+      "address_balance" => if(address && address.fetched_coin_balance, do: address.fetched_coin_balance.value),
       "exchange_rate" => exchange_rate.usd_value,
       "notification_settings" => %{
         "native" => %{
@@ -97,14 +121,20 @@ defmodule BlockScoutWeb.Account.Api.V1.UserView do
       },
       "notification_methods" => %{
         "email" => watchlist.notify_email
-      }
+      },
+      "tokens_fiat_value" => watchlist.tokens_fiat_value,
+      "tokens_count" => watchlist.tokens_count,
+      "tokens_overflow" => watchlist.tokens_overflow
     }
   end
 
   def prepare_custom_abi(custom_abi) do
+    address = get_address(custom_abi.address_hash)
+
     %{
       "id" => custom_abi.id,
       "contract_address_hash" => custom_abi.address_hash,
+      "contract_address" => Helper.address_with_info(nil, address, custom_abi.address_hash, false),
       "name" => custom_abi.name,
       "abi" => custom_abi.abi
     }
@@ -115,7 +145,14 @@ defmodule BlockScoutWeb.Account.Api.V1.UserView do
   end
 
   def prepare_address_tag(address_tag) do
-    %{"id" => address_tag.id, "address_hash" => address_tag.address_hash, "name" => address_tag.name}
+    address = get_address(address_tag.address_hash)
+
+    %{
+      "id" => address_tag.id,
+      "address_hash" => address_tag.address_hash,
+      "address" => Helper.address_with_info(nil, address, address_tag.address_hash, false),
+      "name" => address_tag.name
+    }
   end
 
   def prepare_transaction_tag(nil), do: nil
@@ -125,6 +162,11 @@ defmodule BlockScoutWeb.Account.Api.V1.UserView do
   end
 
   def prepare_public_tags_request(public_tags_request) do
+    addresses =
+      Enum.map(public_tags_request.addresses, fn address_hash ->
+        Helper.address_with_info(nil, get_address(address_hash), address_hash, false)
+      end)
+
     %{
       "id" => public_tags_request.id,
       "full_name" => public_tags_request.full_name,
@@ -133,9 +175,17 @@ defmodule BlockScoutWeb.Account.Api.V1.UserView do
       "website" => public_tags_request.website,
       "tags" => public_tags_request.tags,
       "addresses" => public_tags_request.addresses,
+      "addresses_with_info" => addresses,
       "additional_comment" => public_tags_request.additional_comment,
       "is_owner" => public_tags_request.is_owner,
       "submission_date" => public_tags_request.inserted_at
     }
+  end
+
+  defp get_address(address_hash) do
+    case Chain.hash_to_address(address_hash, [necessity_by_association: %{:smart_contract => :optional}], false) do
+      {:ok, address} -> address
+      _ -> nil
+    end
   end
 end

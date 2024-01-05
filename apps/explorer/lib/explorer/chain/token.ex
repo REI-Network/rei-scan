@@ -23,8 +23,17 @@ defmodule Explorer.Chain.Token do
   import Ecto.{Changeset, Query}
 
   alias Ecto.Changeset
-  alias Explorer.Chain.{Address, Hash, Token}
+  alias Explorer.{Chain, SortingHelper}
+  alias Explorer.Chain.{Address, Hash, Search, Token}
   alias Explorer.SmartContract.Helper
+
+  @default_sorting [
+    desc_nulls_last: :circulating_market_cap,
+    desc_nulls_last: :fiat_value,
+    desc_nulls_last: :holder_count,
+    asc: :name,
+    asc: :contract_address_hash
+  ]
 
   @typedoc """
   * `name` - Name of the token
@@ -32,23 +41,32 @@ defmodule Explorer.Chain.Token do
   * `total_supply` - The total supply of the token
   * `decimals` - Number of decimal places the token can be subdivided to
   * `type` - Type of token
-  * `calatoged` - Flag for if token information has been cataloged
+  * `cataloged` - Flag for if token information has been cataloged
   * `contract_address` - The `t:Address.t/0` of the token's contract
   * `contract_address_hash` - Address hash foreign key
   * `holder_count` - the number of `t:Explorer.Chain.Address.t/0` (except the burn address) that have a
     `t:Explorer.Chain.CurrentTokenBalance.t/0` `value > 0`.  Can be `nil` when data not migrated.
+  * `fiat_value` - The price of a token in a configured currency (USD by default).
+  * `circulating_market_cap` - The circulating market cap of a token in a configured currency (USD by default).
+  * `icon_url` - URL of the token's icon.
+  * `is_verified_via_admin_panel` - is token verified via admin panel.
   """
   @type t :: %Token{
           name: String.t(),
           symbol: String.t(),
-          total_supply: Decimal.t(),
+          total_supply: Decimal.t() | nil,
           decimals: non_neg_integer(),
           type: String.t(),
           cataloged: boolean(),
           contract_address: %Ecto.Association.NotLoaded{} | Address.t(),
           contract_address_hash: Hash.Address.t(),
           holder_count: non_neg_integer() | nil,
-          skip_metadata: boolean()
+          skip_metadata: boolean(),
+          total_supply_updated_at_block: non_neg_integer() | nil,
+          fiat_value: Decimal.t() | nil,
+          circulating_market_cap: Decimal.t() | nil,
+          icon_url: String.t(),
+          is_verified_via_admin_panel: boolean()
         }
 
   @derive {Poison.Encoder,
@@ -77,6 +95,11 @@ defmodule Explorer.Chain.Token do
     field(:cataloged, :boolean)
     field(:holder_count, :integer)
     field(:skip_metadata, :boolean)
+    field(:total_supply_updated_at_block, :integer)
+    field(:fiat_value, :decimal)
+    field(:circulating_market_cap, :decimal)
+    field(:icon_url, :string)
+    field(:is_verified_via_admin_panel, :boolean)
 
     belongs_to(
       :contract_address,
@@ -91,14 +114,13 @@ defmodule Explorer.Chain.Token do
   end
 
   @required_attrs ~w(contract_address_hash type)a
-  @optional_attrs ~w(cataloged decimals name symbol total_supply skip_metadata)a
+  @optional_attrs ~w(cataloged decimals name symbol total_supply skip_metadata total_supply_updated_at_block updated_at fiat_value circulating_market_cap icon_url is_verified_via_admin_panel)a
 
   @doc false
   def changeset(%Token{} = token, params \\ %{}) do
     token
     |> cast(params, @required_attrs ++ @optional_attrs)
     |> validate_required(@required_attrs)
-    |> foreign_key_constraint(:contract_address)
     |> trim_name()
     |> sanitize_token_input(:name)
     |> sanitize_token_input(:symbol)
@@ -140,5 +162,54 @@ defmodule Explorer.Chain.Token do
       select: token.contract_address_hash,
       where: token.cataloged == true and token.updated_at <= ^some_time_ago_date
     )
+  end
+
+  def tokens_by_contract_address_hashes(contract_address_hashes) do
+    from(token in __MODULE__, where: token.contract_address_hash in ^contract_address_hashes)
+  end
+
+  @doc """
+  Lists the top `t:__MODULE__.t/0`'s'.
+  """
+  @spec list_top(String.t() | nil, [
+          Chain.paging_options()
+          | {:sorting, SortingHelper.sorting_params()}
+          | {:token_type, [String.t()]}
+        ]) :: [Token.t()]
+  def list_top(filter, options \\ []) do
+    paging_options = Keyword.get(options, :paging_options, Chain.default_paging_options())
+    token_type = Keyword.get(options, :token_type, nil)
+    sorting = Keyword.get(options, :sorting, [])
+
+    query = from(t in Token, preload: [:contract_address])
+
+    sorted_paginated_query =
+      query
+      |> apply_filter(token_type)
+      |> SortingHelper.apply_sorting(sorting, @default_sorting)
+      |> SortingHelper.page_with_sorting(paging_options, sorting, @default_sorting)
+
+    filtered_query =
+      case filter && filter !== "" && Search.prepare_search_term(filter) do
+        {:some, filter_term} ->
+          sorted_paginated_query
+          |> where(fragment("to_tsvector('english', symbol || ' ' || name) @@ to_tsquery(?)", ^filter_term))
+
+        _ ->
+          sorted_paginated_query
+      end
+
+    filtered_query
+    |> Chain.select_repo(options).all()
+  end
+
+  defp apply_filter(query, empty_type) when empty_type in [nil, []], do: query
+
+  defp apply_filter(query, token_types) when is_list(token_types) do
+    from(t in query, where: t.type in ^token_types)
+  end
+
+  def get_by_contract_address_hash(hash, options) do
+    Chain.select_repo(options).get_by(__MODULE__, contract_address_hash: hash)
   end
 end

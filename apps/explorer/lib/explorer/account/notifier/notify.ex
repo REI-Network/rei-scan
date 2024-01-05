@@ -55,7 +55,8 @@ defmodule Explorer.Account.Notifier.Notify do
   defp notify_watchlists(nil), do: nil
 
   defp notify_watchlist(%WatchlistAddress{} = address, summary, direction) do
-    case ForbiddenAddress.check(address.address_hash) do
+    case !WatchlistNotification.limit_reached_for_watchlist_id?(address.watchlist_id) &&
+           ForbiddenAddress.check(address.address_hash) do
       {:ok, _address_hash} ->
         with %WatchlistNotification{} = notification <-
                build_watchlist_notification(
@@ -73,6 +74,9 @@ defmodule Explorer.Account.Notifier.Notify do
         end
 
       {:error, _message} ->
+        nil
+
+      false ->
         nil
     end
   end
@@ -96,14 +100,16 @@ defmodule Explorer.Account.Notifier.Notify do
 
     email = Email.compose(notification, address)
 
-    case Mailer.deliver_now(email, response: true) do
-      {:ok, _email, response} ->
-        Logger.info("--- email delivery response: SUCCESS", fetcher: :account)
-        Logger.info(response, fetcher: :account)
+    if email do
+      case Mailer.deliver_now(email, response: true) do
+        {:ok, _email, response} ->
+          Logger.info("--- email delivery response: SUCCESS", fetcher: :account)
+          Logger.info(response, fetcher: :account)
 
-      {:error, error} ->
-        Logger.info("--- email delivery response: FAILED", fetcher: :account)
-        Logger.info(error, fetcher: :account)
+        {:error, error} ->
+          Logger.info("--- email delivery response: FAILED", fetcher: :account)
+          Logger.info(error, fetcher: :account)
+      end
     end
   end
 
@@ -114,6 +120,7 @@ defmodule Explorer.Account.Notifier.Notify do
     if is_watched(address, summary, direction) do
       %WatchlistNotification{
         watchlist_address_id: address.id,
+        watchlist_id: address.watchlist_id,
         transaction_hash: summary.transaction_hash,
         from_address_hash: summary.from_address_hash,
         to_address_hash: summary.to_address_hash,

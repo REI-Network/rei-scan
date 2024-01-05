@@ -11,8 +11,10 @@ defmodule Explorer.Etherscan.Contracts do
       where: 3
     ]
 
-  alias Explorer.{Chain, Repo}
+  alias Explorer.Repo
   alias Explorer.Chain.{Address, Hash, SmartContract}
+  alias Explorer.Chain.SmartContract.Proxy
+  alias Explorer.Chain.SmartContract.Proxy.EIP1167
 
   @spec address_hash_to_address_with_source_code(Hash.Address.t()) :: Address.t() | nil
   def address_hash_to_address_with_source_code(address_hash) do
@@ -38,19 +40,13 @@ defmodule Explorer.Etherscan.Contracts do
             }
           else
             address_verified_twin_contract =
-              Chain.get_minimal_proxy_template(address_hash) ||
-                Chain.get_address_verified_twin_contract(address_hash).verified_contract
+              EIP1167.get_implementation_address(address_hash) ||
+                SmartContract.get_address_verified_twin_contract(address_hash).verified_contract
 
-            if address_verified_twin_contract do
-              formatted_code = format_source_code_output(address_verified_twin_contract)
-
-              %{
-                address_with_smart_contract
-                | smart_contract: %{address_verified_twin_contract | contract_source_code: formatted_code}
-              }
-            else
-              address_with_smart_contract
-            end
+            compose_address_with_smart_contract(
+              address_with_smart_contract,
+              address_verified_twin_contract
+            )
           end
       end
 
@@ -58,15 +54,28 @@ defmodule Explorer.Etherscan.Contracts do
     |> append_proxy_info()
   end
 
+  defp compose_address_with_smart_contract(address_with_smart_contract, address_verified_twin_contract) do
+    if address_verified_twin_contract do
+      formatted_code = format_source_code_output(address_verified_twin_contract)
+
+      %{
+        address_with_smart_contract
+        | smart_contract: %{address_verified_twin_contract | contract_source_code: formatted_code}
+      }
+    else
+      address_with_smart_contract
+    end
+  end
+
   def append_proxy_info(%Address{smart_contract: smart_contract} = address) when not is_nil(smart_contract) do
     updated_smart_contract =
-      if Chain.proxy_contract?(address.hash, smart_contract.abi) do
+      if Proxy.proxy_contract?(smart_contract) do
         smart_contract
         |> Map.put(:is_proxy, true)
         |> Map.put(
           :implementation_address_hash_string,
-          address.hash
-          |> Chain.get_implementation_address_hash(smart_contract.abi)
+          smart_contract
+          |> SmartContract.get_implementation_address_hash()
           |> Tuple.to_list()
           |> List.first()
         )

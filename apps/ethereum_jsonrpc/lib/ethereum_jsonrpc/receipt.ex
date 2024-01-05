@@ -300,12 +300,27 @@ defmodule EthereumJSONRPC.Receipt do
   end
 
   # Arbitrum fields
-  defp entry_to_elixir({key, _}) when key in ~w(returnData returnCode feeStats l1BlockNumber) do
+  defp entry_to_elixir({key, _}) when key in ~w(returnData returnCode feeStats l1BlockNumber gasUsedForL1) do
+    :ignore
+  end
+
+  # Metis fields
+  defp entry_to_elixir({key, _}) when key in ~w(l1GasUsed l1GasPrice l1FeeScalar l1Fee) do
     :ignore
   end
 
   # GoQuorum specific transaction receipt fields
   defp entry_to_elixir({key, _}) when key in ~w(isPrivacyMarkerTransaction) do
+    :ignore
+  end
+
+  # Optimism specific transaction receipt fields
+  defp entry_to_elixir({key, _}) when key in ~w(depositNonce depositReceiptVersion) do
+    :ignore
+  end
+
+  # EIP-4844 transaction receipt fields
+  defp entry_to_elixir({key, _}) when key in ~w(blobGasUsed blobGasPrice) do
     :ignore
   end
 

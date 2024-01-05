@@ -3,6 +3,10 @@
     // The call stack of the EVM execution.
     callStack: [{}],
 
+    // Descended tracks whether we've just descended from an outer transaction into
+	// an inner call.
+	descended: false,
+
     // step is invoked for every opcode that the VM executes.
     step(log, db) {
         // Capture any errors immediately
@@ -85,6 +89,11 @@
     success(log, db) {
         var op = log.op.toString();
 
+        if (this.descended) {
+            this.topCall().gasBigInt = log.getGas();
+            this.descended = false;
+        }
+
         this.beforeOp(log, db);
 
         switch (op) {
@@ -163,6 +172,7 @@
             valueBigInt: bigInt(stackValue.toString(10))
         };
         this.callStack.push(call);
+        this.descended = true;
     },
 
     create2Op(log) {
@@ -178,6 +188,7 @@
             valueBigInt: bigInt(stackValue.toString(10))
         };
         this.callStack.push(call);
+        this.descended = true;
     },
 
     selfDestructOp(log, db) {
@@ -214,7 +225,7 @@
             callType: op.toLowerCase(),
             from: toHex(log.contract.getAddress()),
             to: toHex(to),
-            input: toHex(log.memory.slice(inputOffset, inputEnd)),
+            input: input,
             outputOffset: log.stack.peek(4 + stackOffset).valueOf(),
             outputLength: log.stack.peek(5 + stackOffset).valueOf()
         };
@@ -236,6 +247,7 @@
         }
 
         this.callStack.push(call);
+        this.descended = true;
     },
 
     revertOp() {

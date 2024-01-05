@@ -16,10 +16,10 @@ defmodule BlockScoutWeb.API.RPC.EthControllerTest do
     start_supervised!({CoinBalanceOnDemand, [mocked_json_rpc_named_arguments, [name: CoinBalanceOnDemand]]})
     start_supervised!(AddressesCounter)
 
-    Application.put_env(:explorer, AverageBlockTime, enabled: true)
+    Application.put_env(:explorer, AverageBlockTime, enabled: true, cache_period: 1_800_000)
 
     on_exit(fn ->
-      Application.put_env(:explorer, AverageBlockTime, enabled: false)
+      Application.put_env(:explorer, AverageBlockTime, enabled: false, cache_period: 1_800_000)
     end)
 
     :ok
@@ -400,9 +400,7 @@ defmodule BlockScoutWeb.API.RPC.EthControllerTest do
 
     test "with a valid address that has a balance", %{conn: conn, api_params: api_params} do
       block = insert(:block)
-      address = insert(:address)
-
-      insert(:fetched_balance, block_number: block.number, address_hash: address.hash, value: 1)
+      address = insert(:address, fetched_coin_balance: 1, fetched_coin_balance_block_number: block.number)
 
       assert response =
                conn

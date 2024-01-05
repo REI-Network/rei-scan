@@ -1,8 +1,17 @@
 defmodule BlockScoutWeb.API.V2.AddressView do
   use BlockScoutWeb, :view
 
+  import BlockScoutWeb.Account.AuthController, only: [current_user: 1]
+
+  alias BlockScoutWeb.AddressView
   alias BlockScoutWeb.API.V2.{ApiView, Helper, TokenView}
   alias BlockScoutWeb.API.V2.Helper
+  alias Explorer.{Chain, Market}
+  alias Explorer.Chain.Address.Counters
+  alias Explorer.Chain.{Address, SmartContract}
+  alias Explorer.Chain.Token.Instance
+
+  @api_true [api?: true]
 
   def render("message.json", assigns) do
     ApiView.render("message.json", assigns)
@@ -28,15 +37,123 @@ defmodule BlockScoutWeb.API.V2.AddressView do
     Enum.map(coin_balances_by_day, &prepare_coin_balance_history_by_day_entry/1)
   end
 
-  def prepare_address(address, conn \\ nil) do
-    Helper.address_with_info(conn, address, address.hash)
+  def render("tokens.json", %{tokens: tokens, next_page_params: next_page_params}) do
+    %{"items" => Enum.map(tokens, &prepare_token_balance(&1, true)), "next_page_params" => next_page_params}
   end
 
-  def prepare_token_balance({token_balance, token}) do
+  def render("addresses.json", %{
+        addresses: addresses,
+        next_page_params: next_page_params,
+        exchange_rate: exchange_rate,
+        total_supply: total_supply
+      }) do
+    %{
+      items: Enum.map(addresses, &prepare_address/1),
+      next_page_params: next_page_params,
+      exchange_rate: exchange_rate.usd_value,
+      total_supply: total_supply && to_string(total_supply)
+    }
+  end
+
+  def render("nft_list.json", %{token_instances: token_instances, token: token, next_page_params: next_page_params}) do
+    %{"items" => Enum.map(token_instances, &prepare_nft(&1, token)), "next_page_params" => next_page_params}
+  end
+
+  def render("nft_list.json", %{token_instances: token_instances, next_page_params: next_page_params}) do
+    %{"items" => Enum.map(token_instances, &prepare_nft(&1)), "next_page_params" => next_page_params}
+  end
+
+  def render("nft_collections.json", %{collections: nft_collections, next_page_params: next_page_params}) do
+    %{"items" => Enum.map(nft_collections, &prepare_nft_collection(&1)), "next_page_params" => next_page_params}
+  end
+
+  @spec prepare_address(
+          {atom() | %{:fetched_coin_balance => any(), :hash => any(), optional(any()) => any()}, any()}
+          | Explorer.Chain.Address.t()
+        ) :: %{optional(:coin_balance) => any(), optional(:tx_count) => binary(), optional(<<_::32, _::_*8>>) => any()}
+  def prepare_address({address, tx_count}) do
+    nil
+    |> Helper.address_with_info(address, address.hash, true)
+    |> Map.put(:tx_count, to_string(tx_count))
+    |> Map.put(:coin_balance, if(address.fetched_coin_balance, do: address.fetched_coin_balance.value))
+  end
+
+  def prepare_address(address, conn \\ nil) do
+    base_info = Helper.address_with_info(conn, address, address.hash, true)
+
+    {:ok, address_with_smart_contract} =
+      Chain.hash_to_address(
+        address.hash,
+        [necessity_by_association: %{:smart_contract => :optional}],
+        false
+      )
+
+    is_proxy = AddressView.smart_contract_is_proxy?(address_with_smart_contract, @api_true)
+
+    {implementation_address, implementation_name} =
+      with true <- is_proxy,
+           {address, name} <-
+             SmartContract.get_implementation_address_hash(address_with_smart_contract.smart_contract, @api_true),
+           false <- is_nil(address),
+           {:ok, address_hash} <- Chain.string_to_address_hash(address),
+           checksummed_address <- Address.checksum(address_hash) do
+        {checksummed_address, name}
+      else
+        _ ->
+          {nil, nil}
+      end
+
+    balance = address.fetched_coin_balance && address.fetched_coin_balance.value
+    exchange_rate = Market.get_coin_exchange_rate().usd_value
+
+    creator_hash = AddressView.from_address_hash(address)
+    creation_tx = creator_hash && AddressView.transaction_hash(address)
+    token = address.token && TokenView.render("token.json", %{token: address.token})
+
+    write_custom_abi? = AddressView.has_address_custom_abi_with_write_functions?(conn, address.hash)
+    read_custom_abi? = AddressView.has_address_custom_abi_with_read_functions?(conn, address.hash)
+
+    Map.merge(base_info, %{
+      "creator_address_hash" => creator_hash && Address.checksum(creator_hash),
+      "creation_tx_hash" => creation_tx,
+      "token" => token,
+      "coin_balance" => balance,
+      "exchange_rate" => exchange_rate,
+      "implementation_name" => implementation_name,
+      "implementation_address" => implementation_address,
+      "block_number_balance_updated_at" => address.fetched_coin_balance_block_number,
+      "has_custom_methods_read" => read_custom_abi?,
+      "has_custom_methods_write" => write_custom_abi?,
+      "has_methods_read" => AddressView.smart_contract_with_read_only_functions?(address),
+      "has_methods_write" => AddressView.smart_contract_with_write_functions?(address),
+      "has_methods_read_proxy" => is_proxy,
+      "has_methods_write_proxy" =>
+        AddressView.smart_contract_with_write_functions?(address_with_smart_contract) && is_proxy,
+      "has_decompiled_code" => AddressView.has_decompiled_code?(address),
+      "has_validated_blocks" => Counters.check_if_validated_blocks_at_address(address.hash, @api_true),
+      "has_logs" => Counters.check_if_logs_at_address(address.hash, @api_true),
+      "has_tokens" => Counters.check_if_tokens_at_address(address.hash, @api_true),
+      "has_token_transfers" => Counters.check_if_token_transfers_at_address(address.hash, @api_true),
+      "watchlist_address_id" => Chain.select_watchlist_address_id(get_watchlist_id(conn), address.hash),
+      "has_beacon_chain_withdrawals" => Counters.check_if_withdrawals_at_address(address.hash, @api_true)
+    })
+  end
+
+  def prepare_token_balance(token_balance, fetch_token_instance? \\ false) do
     %{
       "value" => token_balance.value,
-      "token" => TokenView.render("token.json", %{token: token}),
-      "token_id" => token_balance.token_id
+      "token" => TokenView.render("token.json", %{token: token_balance.token}),
+      "token_id" => token_balance.token_id,
+      "token_instance" =>
+        if(fetch_token_instance? && token_balance.token_id,
+          do:
+            fetch_and_render_token_instance(
+              token_balance.token_id,
+              token_balance.token,
+              token_balance.address_hash,
+              token_balance
+            )
+        )
     }
   end
 
@@ -55,5 +172,70 @@ defmodule BlockScoutWeb.API.V2.AddressView do
       "date" => coin_balance_by_day.date,
       "value" => coin_balance_by_day.value
     }
+  end
+
+  def get_watchlist_id(conn) do
+    case current_user(conn) do
+      %{watchlist_id: wl_id} ->
+        wl_id
+
+      _ ->
+        nil
+    end
+  end
+
+  defp prepare_nft(nft) do
+    prepare_nft(nft, nft.token)
+  end
+
+  defp prepare_nft(nft, token) do
+    Map.merge(
+      %{"token_type" => token.type, "value" => value(token.type, nft)},
+      TokenView.prepare_token_instance(nft, token)
+    )
+  end
+
+  defp prepare_nft_collection(collection) do
+    %{
+      "token" => TokenView.render("token.json", token: collection.token),
+      "amount" => string_or_null(collection.distinct_token_instances_count || collection.value),
+      "token_instances" =>
+        Enum.map(collection.preloaded_token_instances, fn instance ->
+          prepare_nft_for_collection(collection.token.type, instance)
+        end)
+    }
+  end
+
+  defp prepare_nft_for_collection(token_type, instance) do
+    Map.merge(
+      %{"token_type" => token_type, "value" => value(token_type, instance)},
+      TokenView.prepare_token_instance(instance, nil)
+    )
+  end
+
+  defp value("ERC-721", _), do: "1"
+  defp value(_, nft), do: nft.current_token_balance && to_string(nft.current_token_balance.value)
+
+  defp string_or_null(nil), do: nil
+  defp string_or_null(other), do: to_string(other)
+
+  # TODO think about this approach mb refactor or mark deprecated for example.
+  # Suggested solution: batch preload
+  def fetch_and_render_token_instance(token_id, token, address_hash, token_balance) do
+    token_instance =
+      case Chain.erc721_or_erc1155_token_instance_from_token_id_and_token_address(
+             token_id,
+             token.contract_address_hash,
+             @api_true
+           ) do
+        # `%{hash: address_hash}` will match with `address_with_info(_, address_hash)` clause in `BlockScoutWeb.API.V2.Helper`
+        {:ok, token_instance} -> %Instance{token_instance | owner: %{hash: address_hash}}
+        {:error, :not_found} -> %Instance{token_id: token_id, metadata: nil, owner: %{hash: address_hash}}
+      end
+
+    TokenView.render("token_instance.json", %{
+      token_instance: %Instance{token_instance | current_token_balance: token_balance},
+      token: token
+    })
   end
 end

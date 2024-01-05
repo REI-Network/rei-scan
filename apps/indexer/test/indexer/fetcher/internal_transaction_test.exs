@@ -2,10 +2,13 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
   use EthereumJSONRPC.Case, async: false
   use Explorer.DataCase
 
+  import ExUnit.CaptureLog
   import Mox
 
-  alias Explorer.Chain
-  alias Explorer.Chain.PendingBlockOperation
+  alias Ecto.Multi
+  alias Explorer.{Chain, Repo}
+  alias Explorer.Chain.{Block, PendingBlockOperation}
+  alias Explorer.Chain.Import.Runner.Blocks
   alias Indexer.Fetcher.{CoinBalance, InternalTransaction, PendingTransaction}
 
   # MUST use global mode because we aren't guaranteed to get PendingTransactionFetcher's pid back fast enough to `allow`
@@ -100,7 +103,7 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
 
     block_number = 1_000_006
     block = insert(:block, number: block_number)
-    insert(:pending_block_operation, block_hash: block.hash, fetch_internal_transactions: true)
+    insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
 
     assert :ok = InternalTransaction.run([block_number], json_rpc_named_arguments)
 
@@ -116,7 +119,7 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
       json_rpc_named_arguments: json_rpc_named_arguments
     } do
       block = insert(:block)
-      insert(:pending_block_operation, block_hash: block.hash, fetch_internal_transactions: true)
+      insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
 
       assert InternalTransaction.init(
                [],
@@ -129,8 +132,7 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
     test "does not buffer blocks with fetched internal transactions", %{
       json_rpc_named_arguments: json_rpc_named_arguments
     } do
-      block = insert(:block)
-      insert(:pending_block_operation, block_hash: block.hash, fetch_internal_transactions: false)
+      insert(:block)
 
       assert InternalTransaction.init(
                [],
@@ -169,7 +171,7 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
 
       block = insert(:block)
       block_hash = block.hash
-      insert(:pending_block_operation, block_hash: block_hash, fetch_internal_transactions: true)
+      insert(:pending_block_operation, block_hash: block_hash, block_number: block.number)
 
       assert %{block_hash: block_hash} = Repo.get(PendingBlockOperation, block_hash)
 
@@ -184,7 +186,7 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
       block = insert(:block)
       transaction = insert(:transaction) |> with_block(block)
       block_hash = block.hash
-      insert(:pending_block_operation, block_hash: block_hash, fetch_internal_transactions: true)
+      insert(:pending_block_operation, block_hash: block_hash, block_number: block.number)
 
       if json_rpc_named_arguments[:transport] == EthereumJSONRPC.Mox do
         case Keyword.fetch!(json_rpc_named_arguments, :variant) do
@@ -297,7 +299,7 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
       block = insert(:block)
       insert(:transaction) |> with_block(block)
       block_hash = block.hash
-      insert(:pending_block_operation, block_hash: block_hash, fetch_internal_transactions: true)
+      insert(:pending_block_operation, block_hash: block_hash, block_number: block.number)
 
       assert %{block_hash: ^block_hash} = Repo.get(PendingBlockOperation, block_hash)
 
@@ -305,5 +307,200 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
 
       assert %{block_hash: ^block_hash} = Repo.get(PendingBlockOperation, block_hash)
     end
+
+    test "remove block consensus on foreign_key_violation", %{
+      json_rpc_named_arguments: json_rpc_named_arguments
+    } do
+      block = insert(:block)
+      transaction = :transaction |> insert() |> with_block(block)
+      block_number = block.number
+      insert(:pending_block_operation, block_hash: block.hash, block_number: block.number)
+
+      if json_rpc_named_arguments[:transport] == EthereumJSONRPC.Mox do
+        case Keyword.fetch!(json_rpc_named_arguments, :variant) do
+          EthereumJSONRPC.Nethermind ->
+            EthereumJSONRPC.Mox
+            |> expect(:json_rpc, fn [%{id: id, method: "trace_replayBlockTransactions"}], _options ->
+              {:ok,
+               [
+                 %{
+                   id: id,
+                   result: [
+                     %{
+                       "output" => "0x",
+                       "stateDiff" => nil,
+                       "trace" => [
+                         %{
+                           "action" => %{
+                             "callType" => "call",
+                             "from" => "0xa931c862e662134b85e4dc4baf5c70cc9ba74db4",
+                             "gas" => "0x8600",
+                             "input" => "0xb118e2db0000000000000000000000000000000000000000000000000000000000000008",
+                             "to" => "0x1469b17ebf82fedf56f04109e5207bdc4554288c",
+                             "value" => "0x174876e800"
+                           },
+                           "result" => %{"gasUsed" => "0x7d37", "output" => "0x"},
+                           "subtraces" => 1,
+                           "traceAddress" => [],
+                           "type" => "call"
+                         },
+                         %{
+                           "action" => %{
+                             "callType" => "call",
+                             "from" => "0xb37b428a7ddee91f39b26d79d23dc1c89e3e12a7",
+                             "gas" => "0x32dcf",
+                             "input" => "0x42dad49e",
+                             "to" => "0xee4019030fb5c2b68c42105552c6268d56c6cbfe",
+                             "value" => "0x0"
+                           },
+                           "result" => %{
+                             "gasUsed" => "0xb08",
+                             "output" => "0x"
+                           },
+                           "subtraces" => 0,
+                           "traceAddress" => [0],
+                           "type" => "call"
+                         }
+                       ],
+                       "transactionHash" => transaction.hash,
+                       "vmTrace" => nil
+                     },
+                     %{
+                       "output" => "0x",
+                       "stateDiff" => nil,
+                       "trace" => [
+                         %{
+                           "action" => %{
+                             "callType" => "call",
+                             "from" => "0xa931c862e662134b85e4dc4baf5c70cc9ba74db4",
+                             "gas" => "0x8600",
+                             "input" => "0xb118e2db0000000000000000000000000000000000000000000000000000000000000008",
+                             "to" => "0x1469b17ebf82fedf56f04109e5207bdc4554288c",
+                             "value" => "0x174876e800"
+                           },
+                           "result" => %{"gasUsed" => "0x7d37", "output" => "0x"},
+                           "subtraces" => 1,
+                           "traceAddress" => [],
+                           "type" => "call"
+                         },
+                         %{
+                           "action" => %{
+                             "callType" => "call",
+                             "from" => "0xb37b428a7ddee91f39b26d79d23dc1c89e3e12a7",
+                             "gas" => "0x32dcf",
+                             "input" => "0x42dad49e",
+                             "to" => "0xee4019030fb5c2b68c42105552c6268d56c6cbfe",
+                             "value" => "0x0"
+                           },
+                           "result" => %{
+                             "gasUsed" => "0xb08",
+                             "output" => "0x"
+                           },
+                           "subtraces" => 0,
+                           "traceAddress" => [0],
+                           "type" => "call"
+                         }
+                       ],
+                       "transactionHash" => transaction_hash(),
+                       "vmTrace" => nil
+                     }
+                   ]
+                 }
+               ]}
+            end)
+
+          EthereumJSONRPC.Geth ->
+            EthereumJSONRPC.Mox
+            |> expect(:json_rpc, fn [%{id: id, method: "debug_traceTransaction"}], _options ->
+              {:ok,
+               [
+                 %{
+                   id: id,
+                   result: [
+                     %{
+                       "blockNumber" => block.number,
+                       "transactionIndex" => 0,
+                       "transactionHash" => transaction.hash,
+                       "index" => 0,
+                       "traceAddress" => [],
+                       "type" => "call",
+                       "callType" => "call",
+                       "from" => "0xa931c862e662134b85e4dc4baf5c70cc9ba74db4",
+                       "to" => "0x1469b17ebf82fedf56f04109e5207bdc4554288c",
+                       "gas" => "0x8600",
+                       "gasUsed" => "0x7d37",
+                       "input" => "0xb118e2db0000000000000000000000000000000000000000000000000000000000000008",
+                       "output" => "0x",
+                       "value" => "0x174876e800"
+                     },
+                     %{
+                       "blockNumber" => block.number,
+                       "transactionIndex" => 0,
+                       "transactionHash" => transaction_hash(),
+                       "index" => 0,
+                       "traceAddress" => [],
+                       "type" => "call",
+                       "callType" => "call",
+                       "from" => "0xa931c862e662134b85e4dc4baf5c70cc9ba74db4",
+                       "to" => "0x1469b17ebf82fedf56f04109e5207bdc4554288c",
+                       "gas" => "0x8600",
+                       "gasUsed" => "0x7d37",
+                       "input" => "0xb118e2db0000000000000000000000000000000000000000000000000000000000000008",
+                       "output" => "0x",
+                       "value" => "0x174876e800"
+                     }
+                   ]
+                 }
+               ]}
+            end)
+
+          variant_name ->
+            raise ArgumentError, "Unsupported variant name (#{variant_name})"
+        end
+      end
+
+      logs =
+        capture_log(fn ->
+          assert {:retry, [^block_number]} = InternalTransaction.run([block_number], json_rpc_named_arguments)
+        end)
+
+      assert %{consensus: false} = Repo.reload(block)
+      assert logs =~ "foreign_key_violation on internal transactions import, foreign transactions hashes:"
+    end
+  end
+
+  test "doesn't delete pending block operations after block import if no async process was requested", %{
+    json_rpc_named_arguments: json_rpc_named_arguments
+  } do
+    fetcher_options =
+      Keyword.merge([poll: true, json_rpc_named_arguments: json_rpc_named_arguments], InternalTransaction.defaults())
+
+    if fetcher_options[:poll] do
+      expect(EthereumJSONRPC.Mox, :json_rpc, fn [%{id: id}], _options ->
+        {:ok, [%{id: id, result: []}]}
+      end)
+    end
+
+    InternalTransaction.Supervisor.Case.start_supervised!(fetcher_options)
+
+    %Ecto.Changeset{valid?: true, changes: block_changes} =
+      Block.changeset(%Block{}, params_for(:block, miner_hash: insert(:address).hash, number: 1))
+
+    changes_list = [block_changes]
+    timestamp = DateTime.utc_now()
+    options = %{timestamps: %{inserted_at: timestamp, updated_at: timestamp}}
+
+    assert [] = Repo.all(PendingBlockOperation)
+
+    {:ok, %{blocks: [%{number: block_number, hash: block_hash}]}} =
+      Multi.new()
+      |> Blocks.run(changes_list, options)
+      |> Repo.transaction()
+
+    assert %{block_number: ^block_number, block_hash: ^block_hash} = Repo.one(PendingBlockOperation)
+
+    Process.sleep(4000)
+
+    assert %{block_number: ^block_number, block_hash: ^block_hash} = Repo.one(PendingBlockOperation)
   end
 end
